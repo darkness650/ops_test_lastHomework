@@ -37,11 +37,30 @@ kubectl apply -f ops_test/ops/kubernetes-manifests.yaml
 ### Prometheus + Grafana
 
 ```bash
-kubectl apply -f ops_test/ops/manifests-monitoring/
+# 如有必要，先删除之前的monitoring命名空间
+kubectl delete namespace monitoring
+# 使用国内镜像安装kube-prometheus-stack
+helm repo add prometheus-community "https://helm-charts.itboon.top/prometheus-community"
+helm repo update
+helm install prometheus prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace
 ```
 
-Dashboard Id: 12633
-Prometheus Server URL: http://prometheus:9090
+获取Grafana解密后的admin密码：
+
+bash
+```bash
+kubectl get secret prometheus-grafana -n monitoring -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
+```
+
+```powershell
+$secret = kubectl get secret prometheus-grafana -n monitoring -o jsonpath="{.data.admin-password}"
+$password = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($secret))
+Write-Host "Grafana admin password: $password"
+```
+
+在Grafana的登录界面输入用户名admin和刚才获取的密码，就可以访问Grafana了。推荐使用的仪表板：`1860`，可以显示相当完整的Kubernetes集群状态。
+
+> Nearly all default values exported by Prometheus node exporter graphed.
 
 ### Elasticsearch + Kibana（可选）
 
@@ -100,13 +119,13 @@ minikube service frontend-external
 Prometheus：
 
 ```bash
-minikube service prometheus -n monitoring
+minikube service prometheus-kube-prometheus-prometheus -n monitoring
 ```
 
 Grafana：
 
 ```bash
-minikube service grafana -n monitoring
+minikube service prometheus-grafana -n monitoring
 ```
 
 Kibana：
