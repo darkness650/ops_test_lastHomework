@@ -17,7 +17,7 @@ spec:
         name: elasticsearch
     spec:
       containers:
-       - image: elasticsearch
+       - image: elasticsearch:9.4.2
          name: elasticsearch
          ports:
           - name: elasticsearch
