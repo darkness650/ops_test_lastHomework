@@ -57,6 +57,7 @@ def detect(
     half_d_w: int = 2,
     q: float = 0.001,
     estimator: EstimatorName = "MOM",
+    verbose: bool = True,
 ) -> np.ndarray:
     """
     在一维序列上运行 FluxEV 流式异常检测。
@@ -91,7 +92,7 @@ def detect(
 
             if i == train_len - 1:
                 spot.fit(fs_err[fs_idx : i + 1])
-                spot.initialize()
+                spot.initialize(verbose=verbose)
 
             if i >= train_len:
                 _threshold, alarm = spot.run_step(float(fs_err[i]))
@@ -114,7 +115,7 @@ def detect(
 
             if i == train_len - 1:
                 spot.fit(ss_err[ss_idx : i + 1])
-                spot.initialize()
+                spot.initialize(verbose=verbose)
 
             if i >= train_len:
                 _threshold, alarm = spot.run_step(float(ss_err[i]))

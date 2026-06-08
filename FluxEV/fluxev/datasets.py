@@ -1,10 +1,10 @@
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import f1_score, precision_score, recall_score
 
 from fluxev.detector import detect
 from fluxev.evaluation import adjust_predicts
@@ -66,10 +66,17 @@ def score_predictions(
 ) -> tuple[float, float, float]:
     y_true_arr: np.ndarray = np.concatenate(y_true)
     y_pred_arr: np.ndarray = np.concatenate(y_pred)
-    f_score: float = float(f1_score(y_true_arr, y_pred_arr))
-    recall: float = float(recall_score(y_true_arr, y_pred_arr))
-    precision: float = float(precision_score(y_true_arr, y_pred_arr))
-    return f_score, recall, precision
+    true_positive = int(np.sum((y_true_arr == 1) & (y_pred_arr == 1)))
+    false_positive = int(np.sum((y_true_arr == 0) & (y_pred_arr == 1)))
+    false_negative = int(np.sum((y_true_arr == 1) & (y_pred_arr == 0)))
+
+    precision_denominator = true_positive + false_positive
+    recall_denominator = true_positive + false_negative
+
+    precision = true_positive / precision_denominator if precision_denominator else 0.0
+    recall = true_positive / recall_denominator if recall_denominator else 0.0
+    f_score = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+    return float(f_score), float(recall), float(precision)
 
 
 def append_scores(ret_file_path: str | Path, scores: tuple[float, float, float]) -> None:
@@ -173,4 +180,130 @@ def run_kpi(config: DetectionConfig, base_dir: str | Path, data_path: str | Path
         y_true.append(label_test)
         y_pred.append(ret_test)
 
+    append_scores(ret_file_path, score_predictions(y_true, y_pred))
+
+
+def read_ops_data(path: str | Path) -> pd.DataFrame:
+    file_path = Path(path)
+    df = cast(pd.DataFrame, pd.read_csv(file_path).loc[:, ["timestamp", "value", "label"]]).copy()
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    df["value"] = pd.to_numeric(df["value"], errors="coerce")
+    df["label"] = df["label"].astype(int)
+    df = df.sort_values(by="timestamp", ascending=True).reset_index(drop=True)
+    df["value"] = df["value"].interpolate(method="linear").bfill().ffill()
+    return df
+
+
+def ops_metric_paths(data_dir: str | Path) -> list[Path]:
+    data_root = Path(data_dir)
+    manifest_path = data_root / "manifest.csv"
+    if manifest_path.exists():
+        manifest_df = pd.read_csv(manifest_path)
+        return [data_root / str(output_file) for output_file in manifest_df["output_file"]]
+    return sorted(path for path in data_root.rglob("*.csv") if path.name != "manifest.csv")
+
+
+def default_ops_train_len(label: np.ndarray, data_len: int, min_train_len: int) -> int:
+    positive_idx: np.ndarray = np.flatnonzero(label == 1)
+    candidate = int(positive_idx[0]) if positive_idx.size else data_len // 2
+    return min(max(candidate, min_train_len), data_len - 1)
+
+
+def run_ops(config: DetectionConfig, data_dir: str | Path) -> None:
+    data_root = Path(data_dir)
+    ret_dir = data_root / "results"
+    ret_file_path = result_file_path(ret_dir, config.ret_file, config)
+    per_metric_path = ret_file_path.with_suffix(".csv")
+    ret_dir.mkdir(parents=True, exist_ok=True)
+
+    y_true: list[np.ndarray] = []
+    y_pred: list[np.ndarray] = []
+    metric_records: list[dict[str, object]] = []
+    min_train_len = config.s_w * 2 + 1
+
+    for data_path in ops_metric_paths(data_root):
+        metric_name = str(data_path.relative_to(data_root))
+        print(metric_name)
+
+        try:
+            data_df = read_ops_data(data_path)
+            value = data_df["value"].to_numpy(dtype=float)
+            label = data_df["label"].to_numpy(dtype=int)
+
+            if len(value) <= min_train_len:
+                raise ValueError(
+                    f"序列长度 {len(value)} 不足以初始化 s_w={config.s_w} 的检测窗口"
+                )
+
+            train_len = (
+                default_ops_train_len(label, len(value), min_train_len)
+                if config.train_len is None
+                else min(max(config.train_len, min_train_len), len(value) - 1)
+            )
+
+            label_test = label[train_len:]
+            status = "ok"
+            error = ""
+            try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", RuntimeWarning)
+                    alarms = detect(
+                        value,
+                        train_len,
+                        period=1,
+                        smoothing=1,
+                        s_w=config.s_w,
+                        p_w=config.p_w,
+                        half_d_w=config.half_d_w,
+                        q=config.q,
+                        estimator=config.estimator,
+                        verbose=False,
+                    )
+            except Exception as exc:
+                status = "zero_fallback"
+                error = str(exc)
+                alarms = np.zeros(len(value) - train_len, dtype=np.int_)
+
+            ret_test = adjust_predicts(predict=alarms, label=label_test, delay=config.delay)
+            f_score, recall, precision = score_predictions([label_test], [ret_test])
+
+            y_true.append(label_test)
+            y_pred.append(ret_test)
+            metric_records.append(
+                {
+                    "metric_file": metric_name,
+                    "status": status,
+                    "train_len": train_len,
+                    "rows": len(value),
+                    "positive_labels": int(label.sum()),
+                    "predicted_positives": int(ret_test.sum()),
+                    "f1": f_score,
+                    "recall": recall,
+                    "precision": precision,
+                    "error": error,
+                }
+            )
+        except Exception as exc:
+            metric_records.append(
+                {
+                    "metric_file": metric_name,
+                    "status": "failed",
+                    "train_len": "",
+                    "rows": "",
+                    "positive_labels": "",
+                    "predicted_positives": "",
+                    "f1": "",
+                    "recall": "",
+                    "precision": "",
+                    "error": str(exc),
+                }
+            )
+
+    pd.DataFrame(metric_records).to_csv(per_metric_path, index=False)
+    if not y_true:
+        raise RuntimeError("OPS 数据集中没有任何指标成功完成检测")
+
+    with ret_file_path.open("w", encoding="utf-8") as f:
+        f.write(f"指标数: {len(y_true)} / {len(metric_records)}\n")
+        f.write(f"逐指标结果: {per_metric_path}\n")
     append_scores(ret_file_path, score_predictions(y_true, y_pred))

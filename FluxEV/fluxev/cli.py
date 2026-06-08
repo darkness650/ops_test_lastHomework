@@ -4,7 +4,12 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
 
-from fluxev.datasets import DetectionConfig, run_kpi, run_yahoo
+from fluxev.datasets import DetectionConfig, run_kpi, run_ops, run_yahoo
+from fluxev.ops_preprocessing import (
+    DEFAULT_METRICS_ROOT,
+    DEFAULT_OUTPUT_DIR,
+    process_ops_metrics,
+)
 from fluxev.preprocessing import process_kpi_data
 from fluxev.spot import EstimatorName
 
@@ -19,9 +24,10 @@ def parse_estimator(value: str) -> EstimatorName:
 def build_detection_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="FluxEV 流式异常检测",
-        epilog="KPI 预处理请使用 `uv run -m fluxev.cli preprocess-kpi --help`。",
+        epilog="预处理请使用 `uv run -m fluxev.cli preprocess-kpi --help` 或 `uv run -m fluxev.cli preprocess-ops --help`。",
     )
-    parser.add_argument("--dataset", type=str, default="Yahoo", choices=["KPI", "Yahoo"])
+
+    parser.add_argument("--dataset", type=str, default="Yahoo", choices=["KPI", "Yahoo", "OPS"])
     parser.add_argument("--delay", type=int, default=7, help="评估时允许延迟命中的点数")
     parser.add_argument("--q", type=float, default=0.003, help="SPOT 风险系数")
     parser.add_argument(
@@ -45,6 +51,12 @@ def build_detection_parser() -> argparse.ArgumentParser:
         help="用于初始化 SPOT 的训练长度；省略时使用数据集默认策略",
     )
     parser.add_argument("--ret_file", type=str, default="{}-s{}-p{}-d{}-q{}.txt")
+    parser.add_argument(
+        "--ops-data-dir",
+        type=Path,
+        default=DEFAULT_OUTPUT_DIR,
+        help="OPS 采集指标预处理输出目录，默认指向 data/OPS。",
+    )
     return parser
 
 
@@ -83,6 +95,35 @@ def build_preprocess_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def build_preprocess_ops_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="预处理 OPS 采集指标")
+    parser.add_argument(
+        "--metrics-root",
+        type=Path,
+        default=DEFAULT_METRICS_ROOT,
+        help="原始 Grafana 指标 CSV 根目录。",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=DEFAULT_OUTPUT_DIR,
+        help="预处理后的 OPS 单指标 CSV 输出目录。",
+    )
+    parser.add_argument(
+        "--lower-quantile",
+        type=float,
+        default=0.01,
+        help="点级标注使用的正常基线下分位数。",
+    )
+    parser.add_argument(
+        "--upper-quantile",
+        type=float,
+        default=0.99,
+        help="点级标注使用的正常基线上分位数。",
+    )
+    return parser
+
+
 def config_from_namespace(args: argparse.Namespace) -> DetectionConfig:
     return DetectionConfig(
         ret_file=args.ret_file,
@@ -109,6 +150,8 @@ def run_detection(args: argparse.Namespace) -> None:
         config.delay = 3
         config.q = 0.001
         run_yahoo(config, Path("data") / "Yahoo")
+    elif args.dataset == "OPS":
+        run_ops(config, args.ops_data_dir)
     else:
         raise ValueError(f"不支持的数据集: {args.dataset}")
 
@@ -123,11 +166,24 @@ def run_preprocess_kpi(args: argparse.Namespace) -> None:
     )
 
 
+def run_preprocess_ops(args: argparse.Namespace) -> None:
+    process_ops_metrics(
+        metrics_root=args.metrics_root,
+        output_dir=args.output_dir,
+        lower_quantile=args.lower_quantile,
+        upper_quantile=args.upper_quantile,
+    )
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     arg_list = list(argv) if argv is not None else sys.argv[1:]
     if arg_list and arg_list[0] == "preprocess-kpi":
         args = build_preprocess_parser().parse_args(arg_list[1:])
         run_preprocess_kpi(args)
+        return
+    if arg_list and arg_list[0] == "preprocess-ops":
+        args = build_preprocess_ops_parser().parse_args(arg_list[1:])
+        run_preprocess_ops(args)
         return
 
     args = build_detection_parser().parse_args(arg_list)
