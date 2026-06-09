@@ -1,0 +1,87 @@
+<!--
+ Copyright 2026 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      https://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+{{ define "admin_restock" }}
+{{ template "header" . }}
+
+<main role="main" class="admin-restock">
+  <div class="container">
+    {{ if not $.admin_authenticated }}
+    <section class="admin-login">
+      <h1>Inventory Administration</h1>
+      <p>Sign in to manage incoming stock.</p>
+      {{ if $.login_error }}
+      <div class="admin-alert">Invalid administrator username or password.</div>
+      {{ end }}
+      <form method="POST" action="{{ $.baseUrl }}/admin/login">
+        <label for="admin-username">Username</label>
+        <input id="admin-username" name="username" type="text" autocomplete="username" required />
+        <label for="admin-password">Password</label>
+        <input id="admin-password" name="password" type="password" autocomplete="current-password" required />
+        <button type="submit" class="cymbal-button-primary">Sign In</button>
+      </form>
+    </section>
+    {{ else }}
+    <div class="admin-heading">
+      <div>
+        <h1>Inventory Administration</h1>
+        <p>Record incoming stock for products.</p>
+      </div>
+      <form method="POST" action="{{ $.baseUrl }}/admin/logout">
+        <button type="submit" class="cymbal-button-secondary">Sign Out</button>
+      </form>
+    </div>
+
+    <div class="admin-product-list">
+      {{ range $.admin_products }}
+      <article class="admin-product-row">
+        <img src="{{ $.baseUrl }}{{ .Item.Picture }}" alt="" />
+        <div class="admin-product-details">
+          <h2>{{ .Item.Name }}</h2>
+          <span>Product ID: {{ .Item.Id }}</span>
+          {{ if .Inventory }}
+          <span>Available: {{ .Inventory.Quantity }}</span>
+          <span>Status: {{ .Inventory.StatusLabel }}</span>
+          <span>Warehouse: {{ .Inventory.Warehouse }}</span>
+          {{ else }}
+          <span>Inventory unavailable</span>
+          {{ end }}
+        </div>
+        <form method="POST" action="{{ $.baseUrl }}/admin/restock">
+          <input type="hidden" name="product_id" value="{{ .Item.Id }}" />
+          <label for="quantity-{{ .Item.Id }}">Incoming quantity</label>
+          <input id="quantity-{{ .Item.Id }}" name="quantity" type="number" min="1" max="1000" value="10" required />
+          <button type="submit" class="cymbal-button-primary">Add Stock</button>
+        </form>
+      </article>
+      {{ end }}
+    </div>
+    {{ end }}
+  </div>
+
+  {{ if $.restock_success }}
+  <div class="admin-modal-backdrop" role="presentation">
+    <section class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="restock-success-title">
+      <h2 id="restock-success-title">Restock Successful</h2>
+      <p>The incoming stock has been added successfully.</p>
+      <a class="cymbal-button-primary admin-modal-confirm" href="{{ $.baseUrl }}/admin/restock">Confirm</a>
+    </section>
+  </div>
+  {{ end }}
+</main>
+
+{{ template "footer" . }}
+{{ end }}
