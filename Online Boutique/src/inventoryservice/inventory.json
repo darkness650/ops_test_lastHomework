@@ -1,0 +1,49 @@
+{
+  "products": {
+    "OLJCESPC7Z": {
+      "quantity": 18,
+      "status": "in_stock",
+      "warehouse": "Shanghai-A"
+    },
+    "66VCHSJNUP": {
+      "quantity": 7,
+      "status": "low_stock",
+      "warehouse": "Shanghai-A"
+    },
+    "1YMWWN1N4O": {
+      "quantity": 3,
+      "status": "low_stock",
+      "warehouse": "Beijing-B"
+    },
+    "L9ECAV7KIM": {
+      "quantity": 0,
+      "status": "out_of_stock",
+      "warehouse": "Guangzhou-C"
+    },
+    "2ZYFJ3GM2N": {
+      "quantity": 12,
+      "status": "in_stock",
+      "warehouse": "Shanghai-A"
+    },
+    "0PUK6V6EV0": {
+      "quantity": 25,
+      "status": "in_stock",
+      "warehouse": "Hangzhou-D"
+    },
+    "LS4PSXUNUM": {
+      "quantity": 9,
+      "status": "low_stock",
+      "warehouse": "Hangzhou-D"
+    },
+    "9SIQT8TOJO": {
+      "quantity": 31,
+      "status": "in_stock",
+      "warehouse": "Guangzhou-C"
+    },
+    "6E92ZMYYFZ": {
+      "quantity": 15,
+      "status": "in_stock",
+      "warehouse": "Beijing-B"
+    }
+  }
+}

@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: restockservice
+  labels:
+    app: restockservice
+spec:
+  selector:
+    matchLabels:
+      app: restockservice
+  template:
+    metadata:
+      labels:
+        app: restockservice
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8080"
+    spec:
+      serviceAccountName: restockservice
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: server
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+        image: restockservice
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        env:
+        - name: PORT
+          value: "8080"
+        - name: INVENTORY_SERVICE_URL
+          value: "http://inventoryservice"
+        - name: RESTOCK_API_TOKEN
+          value: "online-boutique-restock"
+        readinessProbe:
+          httpGet:
+            path: "/_healthz"
+            port: 8080
+        livenessProbe:
+          httpGet:
+            path: "/_healthz"
+            port: 8080
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: restockservice
+  labels:
+    app: restockservice
+spec:
+  type: ClusterIP
+  selector:
+    app: restockservice
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: restockservice
