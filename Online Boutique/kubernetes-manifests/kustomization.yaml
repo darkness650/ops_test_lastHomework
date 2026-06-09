@@ -28,6 +28,34 @@ resources:
  - recommendationservice.yaml
  - restockservice.yaml
  - shippingservice.yaml
+images:
+ - name: adservice
+   newName: us-central1-docker.pkg.dev/google-samples/microservices-demo/adservice
+   newTag: v0.10.4
+ - name: cartservice
+   newName: us-central1-docker.pkg.dev/google-samples/microservices-demo/cartservice
+   newTag: v0.10.4
+ - name: checkoutservice
+   newName: us-central1-docker.pkg.dev/google-samples/microservices-demo/checkoutservice
+   newTag: v0.10.4
+ - name: currencyservice
+   newName: us-central1-docker.pkg.dev/google-samples/microservices-demo/currencyservice
+   newTag: v0.10.4
+ - name: emailservice
+   newName: us-central1-docker.pkg.dev/google-samples/microservices-demo/emailservice
+   newTag: v0.10.4
+ - name: paymentservice
+   newName: us-central1-docker.pkg.dev/google-samples/microservices-demo/paymentservice
+   newTag: v0.10.4
+ - name: productcatalogservice
+   newName: us-central1-docker.pkg.dev/google-samples/microservices-demo/productcatalogservice
+   newTag: v0.10.4
+ - name: recommendationservice
+   newName: us-central1-docker.pkg.dev/google-samples/microservices-demo/recommendationservice
+   newTag: v0.10.4
+ - name: shippingservice
+   newName: us-central1-docker.pkg.dev/google-samples/microservices-demo/shippingservice
+   newTag: v0.10.4
 # components:
 # - ../kustomize/components/cymbal-branding
 # - ../kustomize/components/google-cloud-operations
