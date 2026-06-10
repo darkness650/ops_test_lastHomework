@@ -5,6 +5,7 @@
 
 import logging
 import json
+import math
 import re
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
@@ -1314,8 +1315,9 @@ class BusinessAnalyzer:
         disk_values = []
         for node in nodes_list:
             for disk in node.get("disk", []):
-                if disk.get("avg_pct") is not None:
-                    disk_values.append(disk["avg_pct"])
+                avg_pct = disk.get("avg_pct")
+                if avg_pct is not None and not (isinstance(avg_pct, float) and math.isnan(avg_pct)):
+                    disk_values.append(avg_pct)
         if disk_values:
             disk_stats = {
                 "min": round(min(disk_values), 2),

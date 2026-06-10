@@ -4,6 +4,7 @@ Prometheus 历史数据采集器模块
 """
 
 import logging
+import math
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -94,30 +95,52 @@ class MetricsCollector:
         Returns:
             List[Dict[str, Any]]: 处理后的时间序列数据
         """
+        def is_valid_number(val: Any) -> bool:
+            """
+            检查值是否为有效的数字（不是 NaN 或 Inf）
+            """
+            try:
+                num = float(val)
+                return not (math.isnan(num) or math.isinf(num))
+            except (ValueError, TypeError):
+                return False
+
         time_series = []
         for series in result.get("result", []):
             metric = series.get("metric", {})
             values = series.get("values", [])
 
+            valid_values = []
             data_points = []
             for ts, val in values:
-                data_points.append({
-                    "timestamp": datetime.fromtimestamp(float(ts)).isoformat(),
-                    value_key: float(val),
-                })
+                if is_valid_number(val):
+                    num_val = float(val)
+                    data_points.append({
+                        "timestamp": datetime.fromtimestamp(float(ts)).isoformat(),
+                        value_key: num_val,
+                    })
+                    valid_values.append(num_val)
 
-            time_series.append({
-                "metric": metric,
-                "data_points": data_points,
-                "start_value": float(values[0][1]) if values else None,
-                "end_value": float(values[-1][1]) if values else None,
-                "min_value": min(float(v[1]) for v in values) if values else None,
-                "max_value": max(float(v[1]) for v in values) if values else None,
-                "avg_value": (
-                    sum(float(v[1]) for v in values) / len(values)
-                    if values else None
-                ),
-            })
+            if valid_values:
+                time_series.append({
+                    "metric": metric,
+                    "data_points": data_points,
+                    "start_value": valid_values[0],
+                    "end_value": valid_values[-1],
+                    "min_value": min(valid_values),
+                    "max_value": max(valid_values),
+                    "avg_value": sum(valid_values) / len(valid_values),
+                })
+            else:
+                time_series.append({
+                    "metric": metric,
+                    "data_points": [],
+                    "start_value": None,
+                    "end_value": None,
+                    "min_value": None,
+                    "max_value": None,
+                    "avg_value": None,
+                })
 
         return time_series
 
