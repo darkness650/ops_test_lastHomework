@@ -99,6 +99,8 @@ class Settings(BaseSettings):
     polling_interval_minutes: int = Field(alias="POLLING_INTERVAL_MINUTES", default=5)
     # 日志级别
     log_level: str = Field(alias="LOG_LEVEL", default="INFO")
+    # Agent 最大工具调用次数，默认 10 次
+    max_tool_calls: int = Field(alias="MAX_TOOL_CALLS", default=10)
     
     model_config = SettingsConfigDict(
         env_file=str(ENV_FILE),

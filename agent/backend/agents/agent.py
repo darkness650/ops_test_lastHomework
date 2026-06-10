@@ -8,6 +8,7 @@ import logging
 from typing import Any, Callable, Dict, List, Optional
 
 from agents.llm_client import LLMClient, LLMMessage, LLMResponse, get_llm_client
+from config.settings import get_settings
 from tools.base import BaseTool, ToolRegistry, ToolResult, get_tool_registry
 
 
@@ -226,7 +227,7 @@ class Agent:
         llm_client: Optional[LLMClient] = None,
         tool_registry: Optional[ToolRegistry] = None,
         system_prompt: Optional[str] = None,
-        max_tool_calls: int = 10,
+        max_tool_calls: Optional[int] = None,
         on_tool_call: Optional[ToolCallCallback] = None,
         on_tool_result: Optional[ToolResultCallback] = None,
     ):
@@ -237,14 +238,26 @@ class Agent:
             llm_client: LLM 客户端（为 None 时使用全局单例）
             tool_registry: 工具注册表（为 None 时使用全局单例）
             system_prompt: 自定义系统提示
-            max_tool_calls: 最大工具调用次数（防止无限循环）
+            max_tool_calls: 最大工具调用次数（防止无限循环），
+                           为 None 时从 .env 配置 MAX_TOOL_CALLS 读取，
+                           未配置则默认 10 次
             on_tool_call: 工具调用前的回调函数，参数为 (工具名称, 参数字典)
             on_tool_result: 工具执行后的回调函数，参数为 (工具名称, 参数字典, 执行结果)
         """
         self.llm_client = llm_client or get_llm_client()
         self.tool_registry = tool_registry or get_tool_registry()
         self.system_prompt = system_prompt or self.DEFAULT_SYSTEM_PROMPT
-        self.max_tool_calls = max_tool_calls
+        
+        # 从配置读取 max_tool_calls，若未指定则使用配置中的值
+        if max_tool_calls is not None:
+            self.max_tool_calls = max_tool_calls
+        else:
+            try:
+                settings = get_settings()
+                self.max_tool_calls = settings.max_tool_calls
+            except Exception as e:
+                logger.warning(f"读取配置失败，使用默认值: {e}")
+                self.max_tool_calls = 10
         self.on_tool_call = on_tool_call
         self.on_tool_result = on_tool_result
         
