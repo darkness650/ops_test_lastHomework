@@ -13,6 +13,7 @@ const menuItems = [
   { path: '/dashboard', title: '集群概览', icon: 'Odometer' },
   { path: '/chat', title: '智能对话', icon: 'ChatDotRound' },
   { path: '/history', title: '历史记录', icon: 'Clock' },
+  { path: '/performance-analysis', title: '业务性能分析', icon: 'DataAnalysis' },
   { path: '/settings', title: '系统配置', icon: 'Setting' }
 ]
 
@@ -86,7 +87,7 @@ onUnmounted(() => {
         </el-header>
 
         <el-main class="main">
-          <router-view />
+          <router-view :key="$route.fullPath" />
         </el-main>
       </el-container>
     </el-container>

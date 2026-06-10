@@ -14,6 +14,7 @@ from .routes.monitor import router as monitor_router
 from .routes.polling import router as polling_router
 from .routes.config import router as config_router
 from .routes.anomaly import router as anomaly_router
+from .routes.analysis import router as analysis_router
 from .exceptions import register_exception_handlers
 
 
@@ -48,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(polling_router)
     app.include_router(config_router)
     app.include_router(anomaly_router)
+    app.include_router(analysis_router)
     
     # 注册异常处理器
     register_exception_handlers(app)

@@ -235,3 +235,155 @@ class ConfigInfo(BaseModel):
     kubernetes_configured: bool = Field(description="Kubernetes 是否已配置")
     prometheus_configured: bool = Field(description="Prometheus 是否已配置")
     elasticsearch_configured: bool = Field(description="ElasticSearch 是否已配置")
+
+
+# ============================================================================
+# 业务分析报告相关模型
+# ============================================================================
+
+class PerformanceBottleneck(BaseModel):
+    """
+    性能瓶颈模型
+    描述系统中检测到的性能瓶颈信息
+    """
+    target: Optional[str] = Field(default=None, description="目标资源，如 Pod 名称、节点名称等")
+    type: str = Field(description="瓶颈类型: cpu/memory/network/disk")
+    severity: str = Field(description="严重程度: critical/high/medium/low")
+    description: str = Field(description="详细描述")
+    metric_value: Optional[float] = Field(default=None, description="当前指标值")
+    threshold: Optional[float] = Field(default=None, description="阈值")
+    current_value: Optional[float] = Field(default=None, description="当前指标值（别名）")
+    stats: Optional[Dict[str, Any]] = Field(default=None, description="统计信息")
+    detected_at: Optional[str] = Field(default=None, description="检测时间")
+    root_cause: Optional[str] = Field(default=None, description="根因分析（LLM 生成）")
+    impact: Optional[str] = Field(default=None, description="影响范围（LLM 生成）")
+
+
+class BusinessTrend(BaseModel):
+    """
+    业务趋势模型
+    描述业务指标的变化趋势
+    """
+    metric_name: Optional[str] = Field(default=None, description="指标名称")
+    direction: str = Field(description="趋势方向: up/down/stable 或 上升/下降/稳定")
+    change_percent: Optional[float] = Field(default=None, description="变化百分比")
+    start_value: Optional[float] = Field(default=None, description="起始值")
+    end_value: Optional[float] = Field(default=None, description="结束值")
+    data_points: List[Dict[str, Any]] = Field(default_factory=list, description="时间序列数据点列表")
+    type: Optional[str] = Field(default=None, description="指标类型: cpu/memory/network")
+    target: Optional[str] = Field(default=None, description="目标资源")
+    change_rate: Optional[float] = Field(default=None, description="变化率（别名）")
+    analyzed_at: Optional[str] = Field(default=None, description="分析时间")
+    analysis: Optional[str] = Field(default=None, description="趋势分析（LLM 生成）")
+    prediction: Optional[str] = Field(default=None, description="未来预测（LLM 生成）")
+
+
+class OptimizationSuggestion(BaseModel):
+    """
+    优化建议模型
+    提供针对性能问题的优化建议
+    """
+    priority: str = Field(description="优先级: high/medium/low")
+    category: str = Field(description="建议分类，如 资源优化/配置调整/架构改进")
+    suggestion: Optional[str] = Field(default=None, description="建议内容")
+    impact: Optional[str] = Field(default=None, description="预期影响")
+    id: Optional[str] = Field(default=None, description="建议 ID")
+    target: Optional[str] = Field(default=None, description="目标资源")
+    action: Optional[str] = Field(default=None, description="建议动作")
+    details: List[str] = Field(default_factory=list, description="详细步骤")
+    description: Optional[str] = Field(default=None, description="描述")
+    expected_benefit: Optional[str] = Field(default=None, description="预期收益（LLM 生成）")
+    risk: Optional[str] = Field(default=None, description="风险说明（LLM 生成）")
+
+
+class ClusterHealth(BaseModel):
+    """
+    集群性能指标
+    展示集群在过去一段时间内的各项性能指标统计
+    """
+    status: str = Field(description="整体状态: healthy/warning/critical")
+    cpu_usage_pct: Optional[float] = Field(default=None, description="CPU 平均使用率百分比")
+    memory_usage_pct: Optional[float] = Field(default=None, description="内存平均使用率百分比")
+    disk_usage_pct: Optional[float] = Field(default=None, description="磁盘平均使用率百分比")
+    network_bandwidth_pct: Optional[float] = Field(default=None, description="带宽平均使用率百分比")
+    load_average: Optional[float] = Field(default=None, description="系统平均负载")
+    network_traffic: Optional[float] = Field(default=None, description="网络流量（Mbps）")
+    error_rate: Optional[float] = Field(default=None, description="错误率百分比")
+    score: Optional[int] = Field(default=None, description="性能评分（0-100）")
+    analysis: Optional[str] = Field(default=None, description="性能状态详细分析")
+    bottleneck_count: Optional[int] = Field(default=None, description="瓶颈数量")
+    high_count: Optional[int] = Field(default=None, description="高优先级瓶颈数量")
+    medium_count: Optional[int] = Field(default=None, description="中优先级瓶颈数量")
+    low_count: Optional[int] = Field(default=None, description="低优先级瓶颈数量")
+    cpu_stats: Optional[Dict[str, Any]] = Field(default=None, description="CPU 详细统计（min/max/avg）")
+    memory_stats: Optional[Dict[str, Any]] = Field(default=None, description="内存详细统计（min/max/avg）")
+    disk_stats: Optional[Dict[str, Any]] = Field(default=None, description="磁盘详细统计（min/max/avg）")
+    network_stats: Optional[Dict[str, Any]] = Field(default=None, description="网络详细统计（min/max/avg）")
+    load_stats: Optional[Dict[str, Any]] = Field(default=None, description="负载详细统计（min/max/avg）")
+    analysis_period: Optional[str] = Field(default=None, description="分析时间段")
+
+
+class PerformanceReport(BaseModel):
+    """
+    完整性能分析报告模型
+    包含完整的性能分析结果
+    """
+    id: str = Field(description="报告唯一标识符")
+    created_at: str = Field(description="创建时间")
+    analysis_period_hours: Optional[int] = Field(default=None, description="分析时长（小时）")
+    period_hours: Optional[int] = Field(default=None, description="分析时长（小时），别名")
+    namespace: Optional[str] = Field(default=None, description="命名空间，为 None 表示全集群")
+    status: str = Field(description="报告状态: completed/basic/failed/analyzing")
+    summary: str = Field(description="报告摘要")
+    cluster_health: Optional[ClusterHealth] = Field(default=None, description="集群性能指标")
+    bottlenecks: List[PerformanceBottleneck] = Field(default_factory=list, description="性能瓶颈列表")
+    trends: List[BusinessTrend] = Field(default_factory=list, description="业务趋势列表")
+    suggestions: List[OptimizationSuggestion] = Field(default_factory=list, description="优化建议列表")
+    raw_summary: Optional[str] = Field(default=None, description="原始摘要（未格式化）")
+    timestamp: Optional[str] = Field(default=None, description="时间戳")
+    analysis_method: Optional[str] = Field(default=None, description="分析方法: rule_based/llm_enhanced")
+
+
+class AnalysisTriggerRequest(BaseModel):
+    """
+    分析任务触发请求
+    用于手动触发性能分析任务
+    """
+    analysis_period_hours: int = Field(default=24, description="分析时长（小时），默认 24 小时")
+    namespace: Optional[str] = Field(default=None, description="命名空间，不填则分析全集群")
+
+
+class AnalysisTaskStatus(BaseModel):
+    """
+    分析任务状态
+    用于跟踪分析任务的执行状态
+    """
+    task_id: str = Field(description="任务唯一标识符")
+    status: str = Field(description="任务状态: queued/running/completed/failed")
+    progress: float = Field(default=0.0, description="任务进度（0-100）")
+    created_at: str = Field(description="创建时间")
+    updated_at: str = Field(description="更新时间")
+    report_id: Optional[str] = Field(default=None, description="生成的报告 ID（任务完成时）")
+    error_message: Optional[str] = Field(default=None, description="错误信息（任务失败时）")
+
+
+class ReportListResponse(BaseModel):
+    """
+    报告列表响应
+    用于分页查询报告列表
+    """
+    total: int = Field(description="总报告数")
+    page: int = Field(description="当前页码")
+    page_size: int = Field(description="每页数量")
+    reports: List[PerformanceReport] = Field(description="报告列表")
+
+
+class ScheduleConfig(BaseModel):
+    """
+    定时任务配置
+    用于配置自动分析任务的执行计划
+    """
+    enabled: bool = Field(description="是否启用定时任务")
+    hour: int = Field(default=2, description="执行时间（小时，0-23），默认凌晨 2 点")
+    minute: int = Field(default=0, description="执行时间（分钟，0-59），默认 0 分")
+    analysis_period_hours: int = Field(default=24, description="分析时长（小时），默认 24 小时")

@@ -49,3 +49,9 @@ dmypy.json
 # 日志文件
 *.log
 logs/
+
+# 数据文件
+data/
+*.json
+*.csv
+*.txt

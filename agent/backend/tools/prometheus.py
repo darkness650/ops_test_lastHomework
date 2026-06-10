@@ -4,8 +4,9 @@ Prometheus 指标查询工具模块
 """
 
 import logging
+import time
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Callable, TypeVar
 
 from tools.base import BaseTool, ToolParameter, ToolResult
 
@@ -13,11 +14,71 @@ from tools.base import BaseTool, ToolParameter, ToolResult
 # 获取日志记录器
 logger = logging.getLogger(__name__)
 
+# 重试配置
+MAX_RETRIES = 3  # 最大重试次数
+RETRY_DELAY = 1.0  # 重试延迟（秒）
+
+T = TypeVar('T')
+
+
+def _with_retry(
+    func: Callable[..., T],
+    max_retries: int = MAX_RETRIES,
+    delay: float = RETRY_DELAY,
+    before_retry: Optional[Callable[[Exception, int], None]] = None,
+) -> T:
+    """
+    带重试机制的函数执行器
+    
+    Args:
+        func: 要执行的函数
+        max_retries: 最大重试次数
+        delay: 重试延迟（秒）
+        before_retry: 重试前调用的回调函数，参数为 (异常, 尝试次数)
+        
+    Returns:
+        T: 函数执行结果
+    """
+    last_exception = None
+    
+    for attempt in range(max_retries):
+        try:
+            return func()
+        except Exception as e:
+            last_exception = e
+            # 检查是否是可重试的异常（连接错误、超时、远程主机关闭等）
+            error_str = str(e).lower()
+            is_retryable = any([
+                "winerror 10054" in error_str,  # 远程主机强迫关闭
+                "connection" in error_str,
+                "timeout" in error_str,
+                "timed out" in error_str,
+                "reset" in error_str,
+            ])
+            
+            if not is_retryable or attempt >= max_retries - 1:
+                raise
+            
+            # 执行重试前回调
+            if before_retry is not None:
+                try:
+                    before_retry(e, attempt + 1)
+                except Exception as callback_error:
+                    logger.warning(f"重试前回调执行失败: {callback_error}")
+            
+            logger.warning(
+                f"Prometheus 请求失败，将在 {delay} 秒后重试 ({attempt + 1}/{max_retries}): {e}"
+            )
+            time.sleep(delay * (attempt + 1))  # 指数退避
+    
+    # 理论上不会到达这里
+    raise last_exception
+
 
 class PrometheusClient:
     """
     Prometheus API 客户端
-    封装 Prometheus HTTP API
+    封装 Prometheus HTTP API，支持自动重试机制
     """
     
     def __init__(self, base_url: Optional[str] = None):
@@ -41,9 +102,37 @@ class PrometheusClient:
         if self._initialized:
             return
         
+        self._create_client()
+    
+    def _create_client(self) -> None:
+        """
+        创建 HTTP 客户端
+        """
         import httpx
-        self._httpx_client = httpx.Client(base_url=self.base_url, timeout=30.0)
+        self._httpx_client = httpx.Client(
+            base_url=self.base_url,
+            timeout=30.0,
+            # 禁用连接池，每次请求都创建新连接，避免连接被服务器关闭后导致 WinError 10054 错误
+            limits=httpx.Limits(
+                max_keepalive_connections=0,  # 不保留空闲连接
+                keepalive_expiry=0,  # 连接立即使过期
+            ),
+        )
         self._initialized = True
+    
+    def reset_client(self) -> None:
+        """
+        重置 HTTP 客户端，关闭旧连接并创建新客户端
+        用于处理连接被服务器关闭的情况（如 WinError 10054）
+        """
+        if self._httpx_client is not None:
+            try:
+                self._httpx_client.close()
+            except Exception:
+                pass
+            self._httpx_client = None
+            self._initialized = False
+        self._lazy_init()
     
     def query(
         self,
@@ -51,7 +140,7 @@ class PrometheusClient:
         time: Optional[datetime] = None,
     ) -> Dict[str, Any]:
         """
-        执行即时查询（instant query）
+        执行即时查询（instant query），支持自动重试
         
         Args:
             query: PromQL 查询语句
@@ -66,14 +155,22 @@ class PrometheusClient:
         if time:
             params["time"] = time.timestamp()
         
-        response = self._httpx_client.get("/api/v1/query", params=params)
-        response.raise_for_status()
+        def _do_query() -> Dict[str, Any]:
+            response = self._httpx_client.get("/api/v1/query", params=params)
+            response.raise_for_status()
+            
+            result = response.json()
+            if result.get("status") != "success":
+                raise Exception(f"Prometheus 查询失败: {result.get('error')}")
+            
+            return result["data"]
         
-        result = response.json()
-        if result.get("status") != "success":
-            raise Exception(f"Prometheus 查询失败: {result.get('error')}")
+        # 定义重试前回调：重置 HTTP 客户端以处理连接关闭问题
+        def _before_retry(e: Exception, attempt: int) -> None:
+            logger.info(f"重试前重置 Prometheus 客户端，尝试次数: {attempt}, 错误: {e}")
+            self.reset_client()
         
-        return result["data"]
+        return _with_retry(_do_query, before_retry=_before_retry)
     
     def query_range(
         self,
@@ -83,7 +180,7 @@ class PrometheusClient:
         step: str = "1m",
     ) -> Dict[str, Any]:
         """
-        执行范围查询（range query）
+        执行范围查询（range query），支持自动重试
         
         Args:
             query: PromQL 查询语句
@@ -103,14 +200,22 @@ class PrometheusClient:
             "step": step,
         }
         
-        response = self._httpx_client.get("/api/v1/query_range", params=params)
-        response.raise_for_status()
+        def _do_query() -> Dict[str, Any]:
+            response = self._httpx_client.get("/api/v1/query_range", params=params)
+            response.raise_for_status()
+            
+            result = response.json()
+            if result.get("status") != "success":
+                raise Exception(f"Prometheus 范围查询失败: {result.get('error')}")
+            
+            return result["data"]
         
-        result = response.json()
-        if result.get("status") != "success":
-            raise Exception(f"Prometheus 范围查询失败: {result.get('error')}")
+        # 定义重试前回调：重置 HTTP 客户端以处理连接关闭问题
+        def _before_retry(e: Exception, attempt: int) -> None:
+            logger.info(f"重试前重置 Prometheus 客户端，尝试次数: {attempt}, 错误: {e}")
+            self.reset_client()
         
-        return result["data"]
+        return _with_retry(_do_query, before_retry=_before_retry)
     
     def is_available(self) -> bool:
         """
