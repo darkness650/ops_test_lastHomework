@@ -264,6 +264,13 @@ class Agent:
             logger.warning(f"注册 K8s 工具失败: {e}")
         
         try:
+            from tools.prometheus import register_prometheus_tools
+            register_prometheus_tools()
+            logger.info("已注册 Prometheus 工具")
+        except Exception as e:
+            logger.warning(f"注册 Prometheus 工具失败: {e}")
+        
+        try:
             from tools.examples import register_example_tools
             register_example_tools()
             logger.info("已注册示例工具")
