@@ -2,89 +2,130 @@
 
 ## 项目简介
 
-微服务运维智能体是一个基于大语言模型 (LLM) 的智能运维平台，旨在帮助运维人员更高效地管理 Kubernetes 集群。该系统能够自动监控集群状态、检测异常、分析根因，并提供智能的故障恢复建议。
+微服务运维智能体是一个基于大语言模型 (LLM) 的智能运维平台，旨在帮助运维人员更高效地管理 Kubernetes 集群。该系统能够自动监测集群健康状态、检测异常、进行 AI 根因分析，并生成故障恢复建议。
 
-### 主要特性
+### 主要功能
 
-- **智能对话交互**：通过自然语言与运维Agent进行对话，查询集群状态
-- **Kubernetes 集成**：自动发现集群资源（Pod、Deployment、Service、Node等）
-- **Prometheus 监控**：实时获取集群指标数据
-- **异常检测**：自动检测 Pod 崩溃、资源不足、健康检查失败等异常
-- **AI 根因分析**：利用大语言模型进行智能故障根因分析
-- **故障恢复建议**：提供可执行的故障恢复步骤和操作指导
-- **定时轮询**：定期自动检查集群健康状态
-- **可视化仪表盘**：直观展示集群状态和异常告警
+| 功能模块 | 描述 |
+|---------|------|
+| **集群健康监测** | 自动检测 Pod、Deployment、Node 等资源的异常状态，基于规则引擎快速识别问题 |
+| **AI 根因分析** | 当检测到异常时，自动触发 LLM 进行深度分析，识别问题根因 |
+| **故障恢复建议** | 基于根因分析生成具体、可操作的恢复步骤，包含风险评估 |
+| **定时轮询调度** | 支持定时轮询监测集群状态，自动触发异常分析 |
+| **智能对话** | 通过自然语言与运维智能体对话，查询集群状态、获取运维建议 |
+| **业务性能分析** | 分析集群性能指标，识别性能瓶颈、趋势分析，提供优化建议 |
+| **历史记录** | 保存所有监测和分析记录，支持历史追溯和趋势分析 |
+| **命令行工具** | 提供完整的 CLI 工具，支持与 GUI 完全同步的运维操作 |
 
 ## 项目结构
 
 ```
 agent/
-├── backend/                    # 后端服务
-│   ├── agents/                # 智能体核心模块
-│   │   ├── agent.py           # Agent 核心逻辑
-│   │   ├── llm_client.py      # LLM 客户端
-│   │   ├── anomaly_analyzer.py # 异常分析器
-│   │   ├── scheduler.py       # 任务调度器
-│   │   └── ...
-│   ├── api/                   # API 接口层
-│   │   ├── routes/            # 路由模块
-│   │   │   ├── chat.py        # 聊天对话接口
-│   │   │   ├── monitor.py     # 监控接口
-│   │   │   ├── anomaly.py     # 异常管理接口
-│   │   │   ├── polling.py     # 轮询调度接口
-│   │   │   └── config.py      # 配置接口
-│   │   └── app.py             # FastAPI 应用入口
-│   ├── tools/                 # 工具模块
-│   │   ├── k8s_tools.py       # Kubernetes 操作工具
-│   │   ├── prometheus.py      # Prometheus 查询工具
-│   │   └── logs.py            # 日志查询工具
-│   ├── config/                # 配置模块
-│   │   ├── settings.py        # 应用配置
-│   │   └── logging_config.py  # 日志配置
-│   ├── cli/                   # 命令行工具
-│   ├── tests/                 # 测试用例
-│   ├── main.py                # 后端启动入口
-│   ├── pyproject.toml         # 项目依赖配置
-│   └── .env                   # 环境变量文件
-├── frontend/                  # 前端应用
+├── backend/                          # 后端服务
+│   ├── agents/                       # 智能体核心模块
+│   │   ├── agent.py                  # Agent 核心类，实现 Tool Calling 循环
+│   │   ├── engine.py                 # 分析引擎，包含健康监测、异常检测、根因分析
+│   │   ├── scheduler.py              # 定时轮询调度器
+│   │   ├── anomaly_analyzer.py       # 异常分析器，后台自动执行 AI 分析
+│   │   ├── business_analyzer.py      # 业务性能分析引擎
+│   │   ├── llm_client.py             # LLM 客户端封装
+│   │   ├── history.py                # 轮询历史记录存储
+│   │   ├── analysis_store.py         # 分析结果存储
+│   │   ├── report_store.py           # 性能报告存储
+│   │   ├── schedule_analyzer.py      # 调度分析器
+│   │   └── analysis_task_manager.py  # 分析任务管理器
+│   ├── api/                          # FastAPI 应用
+│   │   ├── app.py                    # FastAPI 应用创建
+│   │   ├── exceptions.py             # 异常处理
+│   │   ├── schemas.py                # API 数据模型
+│   │   └── routes/                   # API 路由
+│   │       ├── chat.py               # 对话接口
+│   │       ├── monitor.py            # 监测接口
+│   │       ├── polling.py            # 轮询调度接口
+│   │       ├── anomaly.py            # 异常分析接口
+│   │       ├── analysis.py           # 性能分析接口
+│   │       └── config.py             # 配置接口
+│   ├── cli/                          # 命令行工具
+│   │   └── main.py                   # CLI 入口
+│   ├── config/                       # 配置管理
+│   │   ├── settings.py               # 应用配置（Pydantic Settings）
+│   │   └── logging_config.py         # 日志配置
+│   ├── tools/                        # 工具模块
+│   │   ├── base.py                   # 工具基类和注册表
+│   │   ├── k8s_client.py             # Kubernetes 客户端封装
+│   │   ├── k8s_tools.py              # K8s 相关工具函数
+│   │   ├── prometheus.py             # Prometheus 工具
+│   │   ├── logs.py                   # 日志工具
+│   │   ├── metrics_collector.py      # 指标采集器
+│   │   └── examples.py               # 示例工具
+│   ├── memory/                       # 内存存储
+│   ├── models/                       # 数据模型
+│   ├── tests/                        # 测试代码
+│   ├── .env.example                  # 环境变量示例
+│   ├── pyproject.toml                # Python 项目配置
+│   └── main.py                       # 应用入口
+│
+├── frontend/                         # 前端应用
 │   ├── src/
-│   │   ├── pages/             # 页面组件
-│   │   │   ├── Dashboard.vue  # 仪表盘首页
-│   │   │   ├── Chat.vue       # 对话页面
-│   │   │   ├── History.vue    # 历史记录页面
-│   │   │   └── Settings.vue   # 设置页面
-│   │   ├── stores/            # Pinia 状态管理
-│   │   ├── api/               # API 调用层
-│   │   └── App.vue            # 应用根组件
-│   ├── package.json           # 前端依赖配置
-│   └── vite.config.ts         # Vite 配置
-└── README.md                  # 项目说明文档
+│   │   ├── api/                      # API 封装
+│   │   ├── pages/                    # 页面组件
+│   │   │   ├── Dashboard.vue         # 集群概览页面
+│   │   │   ├── Chat.vue              # 智能对话页面
+│   │   │   ├── History.vue           # 历史记录页面
+│   │   │   ├── Settings.vue          # 系统配置页面
+│   │   │   ├── PerformanceAnalysis.vue      # 业务性能分析页面
+│   │   │   └── PerformanceReportDetail.vue  # 性能报告详情页面
+│   │   ├── stores/                   # Pinia 状态管理
+│   │   ├── router/                   # 路由配置
+│   │   ├── components/               # 通用组件
+│   │   ├── composables/              # 组合式函数
+│   │   └── types/                    # TypeScript 类型定义
+│   ├── index.html
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── tailwind.config.js
+│
+├── .gitignore
+└── README.md
 ```
 
 ## 技术栈
 
 ### 后端
 
-- **Python**: >= 3.10
-- **FastAPI**: Web 框架
-- **Uvicorn**: ASGI 服务器
-- **Pydantic**: 数据验证
-- **UV**: Python 包管理器
-- **Kubernetes Python Client**: Kubernetes API 客户端
-- **APScheduler**: 任务调度器
-- **Typer**: 命令行工具
+| 技术 | 版本 | 用途 |
+|------|------|------|
+| Python | >= 3.10 | 编程语言 |
+| FastAPI | >= 0.110.0 | Web 框架 |
+| Uvicorn | >= 0.27.0 | ASGI 服务器 |
+| Pydantic | >= 2.6.0 | 数据验证和设置管理 |
+| Python-dotenv | >= 1.0.0 | 环境变量加载 |
+| HTTPX | >= 0.27.0 | HTTP 客户端（调用 LLM API） |
+| Kubernetes Python Client | >= 29.0.0 | Kubernetes 集群交互 |
+| Elasticsearch Python Client | >= 8.0.0 | 日志存储和查询 |
+| APScheduler | >= 3.10.0 | 定时任务调度 |
+| Typer | >= 0.12.0 | 命令行界面构建 |
+| Rich | >= 13.7.0 | 终端输出美化 |
+| Pytest | >= 8.0.0 | 测试框架（开发依赖） |
 
 ### 前端
 
-- **Vue 3**: 前端框架
-- **TypeScript**: 类型安全
-- **Vite**: 构建工具
-- **Element Plus**: UI 组件库
-- **Pinia**: 状态管理
-- **Vue Router**: 路由管理
-- **Tailwind CSS**: 原子化 CSS
-- **ECharts**: 数据可视化
-- **Axios**: HTTP 客户端
+| 技术 | 版本 | 用途 |
+|------|------|------|
+| Vue | >= 3.4.15 | 前端框架 |
+| TypeScript | ~5.3.3 | 类型系统 |
+| Vite | >= 5.0.12 | 构建工具 |
+| Vue Router | >= 4.2.5 | 路由管理 |
+| Pinia | >= 2.1.7 | 状态管理 |
+| Element Plus | >= 2.7.0 | UI 组件库 |
+| ECharts | >= 5.5.0 | 图表可视化 |
+| Axios | >= 1.7.0 | HTTP 客户端 |
+| Tailwind CSS | >= 3.4.1 | 样式框架 |
+| Marked | >= 18.0.5 | Markdown 解析 |
+| DOMPurify | >= 3.4.8 | XSS 防护 |
+| Highlight.js | >= 11.11.1 | 代码高亮 |
+| Lucide Vue Next | >= 0.511.0 | 图标库 |
+| clsx + tailwind-merge | - | CSS 类名工具 |
 
 ## 快速开始
 
@@ -93,8 +134,9 @@ agent/
 - Python >= 3.10
 - Node.js >= 18
 - UV (Python 包管理器)
-- Kubernetes 集群 (可选，用于完整功能测试)
+- Kubernetes 集群
 - Prometheus (可选，用于监控指标)
+- ElasticSearch (可选，用于日志存储)
 
 ### 后端部署
 
@@ -136,6 +178,9 @@ POLLING_INTERVAL_MINUTES=5
 
 # 日志级别
 LOG_LEVEL=INFO
+
+# Agent 最大工具调用次数，默认 10 次
+# MAX_TOOL_CALLS=10
 ```
 
 4. **启动后端服务**
@@ -178,126 +223,6 @@ npm run dev
 
 ```bash
 npm run build
-```
-
-## 功能说明
-
-### 1. 仪表盘 (Dashboard)
-
-仪表盘提供集群状态的概览：
-
-- **集群状态**：显示当前集群的健康状态（正常/警告/严重/异常）
-- **异常数量**：统计当前检测到的异常总数
-- **轮询状态**：显示自动轮询是否运行中
-- **轮询间隔**：显示定时检查的时间间隔
-- **异常列表**：展示所有检测到的异常，点击可查看 AI 分析及修复建议
-
-### 2. 智能对话 (Chat)
-
-通过自然语言与运维 Agent 进行交互：
-
-- 查询 Pod 状态：`查看 default 命名空间下的所有 Pod`
-- 检查服务健康：`检查 my-service 服务是否正常`
-- 获取日志：`查看 my-pod 的最近 100 条日志`
-- 查询监控指标：`获取最近 5 分钟的 CPU 使用率`
-
-### 3. 异常检测与分析
-
-系统会自动检测以下异常类型：
-
-- **Pod CrashLoopBackOff**：Pod 反复崩溃重启
-- **Pending Pods**：Pod 无法调度
-- **Failed Pods**：Pod 运行失败
-- **ImagePullBackOff**：镜像拉取失败
-- **Failed Scheduling**：调度失败
-- **Resources Exhausted**：资源不足
-- **Container Not Ready**：容器未就绪
-- **Probe Failures**：探针检查失败
-- **ReplicaSet Mismatch**：副本集不匹配
-
-检测到异常后，可以触发 AI 根因分析，系统会：
-1. 收集相关证据（Pod 状态、事件、日志等）
-2. 使用 LLM 进行智能分析
-3. 提供根因分析和置信度
-4. 给出可执行的恢复步骤和风险评估
-
-### 4. 定时轮询
-
-系统支持定期自动检查集群状态：
-
-- 可配置轮询间隔（默认 5 分钟）
-- 自动记录历史检查结果
-- 发现异常自动记录和告警
-
-## API 接口
-
-### 主要接口
-
-| 接口路径 | 方法 | 描述 |
-|---------|------|------|
-| `/api/v1/chat` | POST | 与 Agent 对话 |
-| `/api/v1/monitor/health` | GET | 健康检查 |
-| `/api/v1/monitor/check` | POST | 执行健康检查 |
-| `/api/v1/monitor/anomalies` | GET | 获取异常列表 |
-| `/api/v1/anomaly/{id}` | GET | 获取异常详情 |
-| `/api/v1/anomaly/{id}/analyze` | POST | 触发异常分析 |
-| `/api/v1/polling/status` | GET | 获取轮询状态 |
-| `/api/v1/polling/start` | POST | 启动轮询 |
-| `/api/v1/polling/stop` | POST | 停止轮询 |
-| `/api/v1/config` | GET | 获取当前配置 |
-
-### API 示例
-
-#### 与 Agent 对话
-
-```bash
-curl -X POST http://localhost:8000/api/v1/chat \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "查看所有 Pod 状态",
-    "context_id": "optional-session-id"
-  }'
-```
-
-#### 执行健康检查
-
-```bash
-curl -X POST http://localhost:8000/api/v1/monitor/check
-```
-
-## 配置说明
-
-### LLM 配置
-
-项目支持兼容 OpenAI API 格式的大语言模型服务：
-
-```env
-BASE_URL=https://api.openai.com/v1
-API_KEY=sk-xxxxxxxxxxxxxxxxxxxx
-MODEL=gpt-4
-```
-
-### Kubernetes 配置
-
-如果需要连接远程 Kubernetes 集群：
-
-```env
-KUBECONFIG_PATH=/path/to/your/kubeconfig
-```
-
-如果不配置，将使用默认的 Kubernetes 配置路径（如 `~/.kube/config`）或集群内配置。
-
-### Prometheus 配置
-
-```env
-PROMETHEUS_URL=http://localhost:9090
-```
-
-### ElasticSearch 配置（用于日志查询）
-
-```env
-ES_URL=http://localhost:9200
-ES_INDEX=application-logs
 ```
 
 ## 命令行工具 (CLI)
@@ -530,52 +455,6 @@ uv run python -m cli.main health list -s failed
 | `python -m cli.main polling-start` | Settings 页面启动轮询 |
 | `python -m cli.main history` | History 页面 |
 | `python -m cli.main health list` | History 页面分析记录 |
-
-## 开发指南
-
-### 后端开发
-
-```bash
-cd backend
-
-# 安装依赖
-uv sync
-
-# 运行测试
-uv run pytest
-
-# 启动开发服务器（热重载）
-uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### 前端开发
-
-```bash
-cd frontend
-
-# 安装依赖
-npm install
-
-# 启动开发服务器
-npm run dev
-
-# 类型检查
-npm run check
-
-# 构建生产版本
-npm run build
-```
-
-## 测试
-
-项目包含验证测试用例，位于 `backend/tests/` 目录：
-
-```bash
-cd backend
-
-# 运行所有测试
-uv run pytest
-```
 
 ## 常见问题
 
