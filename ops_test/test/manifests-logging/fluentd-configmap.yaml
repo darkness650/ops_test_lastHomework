@@ -1,0 +1,214 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentd-config
+  namespace: kube-system
+data:
+  fluentd.conf: |
+    # 输入源：从容器日志文件读取
+    <source>
+      @type tail
+      path /var/log/containers/*.log
+      pos_file /var/log/fluentd-containers.log.pos
+      tag kubernetes.*
+      <parse>
+        @type json
+        time_format %Y-%m-%dT%H:%M:%S.%NZ
+      </parse>
+    </source>
+
+    # 过滤 Kubernetes 元数据
+    <filter kubernetes.**>
+      @type kubernetes_metadata
+    </filter>
+
+    # 只保留指定微服务的日志（通过 pod_name 过滤）
+    <filter kubernetes.**>
+      @type grep
+      <regexp>
+        key $.kubernetes.pod_name
+        pattern ^(emailservice|checkoutservice|recommendationservice|frontend|paymentservice|productcatalogservice|cartservice|redis-cart|loadgenerator|currencyservice|shippingservice|adservice)-
+      </regexp>
+    </filter>
+
+    # emailservice 日志（无缓冲）
+    <match kubernetes.var.log.containers.emailservice-**>
+      @type file
+      path /var/log/fluentd/output/emailservice.log
+      append true
+      <format>
+        @type json
+      </format>
+      <buffer>
+        @type memory
+        flush_mode immediate
+      </buffer>
+    </match>
+
+    # checkoutservice 日志（无缓冲）
+    <match kubernetes.var.log.containers.checkoutservice-**>
+      @type file
+      path /var/log/fluentd/output/checkoutservice.log
+      append true
+      <format>
+        @type json
+      </format>
+      <buffer>
+        @type memory
+        flush_mode immediate
+      </buffer>
+    </match>
+
+    # recommendationservice 日志（无缓冲）
+    <match kubernetes.var.log.containers.recommendationservice-**>
+      @type file
+      path /var/log/fluentd/output/recommendationservice.log
+      append true
+      <format>
+        @type json
+      </format>
+      <buffer>
+        @type memory
+        flush_mode immediate
+      </buffer>
+    </match>
+
+    # frontend 日志（无缓冲）
+    <match kubernetes.var.log.containers.frontend-**>
+      @type file
+      path /var/log/fluentd/output/frontend.log
+      append true
+      <format>
+        @type json
+      </format>
+      <buffer>
+        @type memory
+        flush_mode immediate
+      </buffer>
+    </match>
+
+    # paymentservice 日志（无缓冲）
+    <match kubernetes.var.log.containers.paymentservice-**>
+      @type file
+      path /var/log/fluentd/output/paymentservice.log
+      append true
+      <format>
+        @type json
+      </format>
+      <buffer>
+        @type memory
+        flush_mode immediate
+      </buffer>
+    </match>
+
+    # productcatalogservice 日志（无缓冲）
+    <match kubernetes.var.log.containers.productcatalogservice-**>
+      @type file
+      path /var/log/fluentd/output/productcatalogservice.log
+      append true
+      <format>
+        @type json
+      </format>
+      <buffer>
+        @type memory
+        flush_mode immediate
+      </buffer>
+    </match>
+
+    # cartservice 日志（无缓冲）
+    <match kubernetes.var.log.containers.cartservice-**>
+      @type file
+      path /var/log/fluentd/output/cartservice.log
+      append true
+      <format>
+        @type json
+      </format>
+      <buffer>
+        @type memory
+        flush_mode immediate
+      </buffer>
+    </match>
+
+    # redis-cart 日志（无缓冲）
+    <match kubernetes.var.log.containers.redis-cart-**>
+      @type file
+      path /var/log/fluentd/output/redis-cart.log
+      append true
+      <format>
+        @type json
+      </format>
+      <buffer>
+        @type memory
+        flush_mode immediate
+      </buffer>
+    </match>
+
+    # loadgenerator 日志（无缓冲）
+    <match kubernetes.var.log.containers.loadgenerator-**>
+      @type file
+      path /var/log/fluentd/output/loadgenerator.log
+      append true
+      <format>
+        @type json
+      </format>
+      <buffer>
+        @type memory
+        flush_mode immediate
+      </buffer>
+    </match>
+
+    # currencyservice 日志（无缓冲）
+    <match kubernetes.var.log.containers.currencyservice-**>
+      @type file
+      path /var/log/fluentd/output/currencyservice.log
+      append true
+      <format>
+        @type json
+      </format>
+      <buffer>
+        @type memory
+        flush_mode immediate
+      </buffer>
+    </match>
+
+    # shippingservice 日志（无缓冲）
+    <match kubernetes.var.log.containers.shippingservice-**>
+      @type file
+      path /var/log/fluentd/output/shippingservice.log
+      append true
+      <format>
+        @type json
+      </format>
+      <buffer>
+        @type memory
+        flush_mode immediate
+      </buffer>
+    </match>
+
+    # adservice 日志（无缓冲）
+    <match kubernetes.var.log.containers.adservice-**>
+      @type file
+      path /var/log/fluentd/output/adservice.log
+      append true
+      <format>
+        @type json
+      </format>
+      <buffer>
+        @type memory
+        flush_mode immediate
+      </buffer>
+    </match>
+
+    # 其他未匹配的日志（兜底，无缓冲）
+    <match **>
+      @type file
+      path /var/log/fluentd/output/other.log
+      append true
+      <format>
+        @type json
+      </format>
+      <buffer>
+        @type memory
+        flush_mode immediate
+      </buffer>
+    </match>

@@ -1,0 +1,594 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Online Boutique gRPC 极限压测">
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="用户自定义变量">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="TARGET_HOST" elementType="Argument">
+            <stringProp name="Argument.name">TARGET_HOST</stringProp>
+            <stringProp name="Argument.value">127.0.0.1</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PROTO_ROOT" elementType="Argument">
+            <stringProp name="Argument.name">PROTO_ROOT</stringProp>
+            <stringProp name="Argument.value">d:/code/github/Online-Boutique/protos</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_1" elementType="Argument">
+            <stringProp name="Argument.name">PID_1</stringProp>
+            <stringProp name="Argument.value">OLJCESPC7Z</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_2" elementType="Argument">
+            <stringProp name="Argument.name">PID_2</stringProp>
+            <stringProp name="Argument.value">LS4PSXUNUM</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_3" elementType="Argument">
+            <stringProp name="Argument.name">PID_3</stringProp>
+            <stringProp name="Argument.value">9SIQT6ULQW</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_4" elementType="Argument">
+            <stringProp name="Argument.name">PID_4</stringProp>
+            <stringProp name="Argument.value">0PUK6V6EV0</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_5" elementType="Argument">
+            <stringProp name="Argument.name">PID_5</stringProp>
+            <stringProp name="Argument.value">1YMWWN1N4O</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_6" elementType="Argument">
+            <stringProp name="Argument.name">PID_6</stringProp>
+            <stringProp name="Argument.value">2ZYFJ3GM2N</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_7" elementType="Argument">
+            <stringProp name="Argument.name">PID_7</stringProp>
+            <stringProp name="Argument.value">66VCHSJNUP</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_8" elementType="Argument">
+            <stringProp name="Argument.name">PID_8</stringProp>
+            <stringProp name="Argument.value">6E92ZMYYFZ</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_9" elementType="Argument">
+            <stringProp name="Argument.name">PID_9</stringProp>
+            <stringProp name="Argument.value">9QT0DCM7VX</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_10" elementType="Argument">
+            <stringProp name="Argument.name">PID_10</stringProp>
+            <stringProp name="Argument.value">L9ECAV7KIM</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+        </collectionProp>
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+
+      <!-- 场景1: CartService 100线程 -->
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="CartService-100线程">
+        <intProp name="ThreadGroup.num_threads">100</intProp>
+        <intProp name="ThreadGroup.ramp_time">5</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器">
+          <stringProp name="LoopController.loops">100</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="CartService/AddItem" enabled="true">
+          <stringProp name="GRPCSampler.host">${TARGET_HOST}</stringProp>
+          <stringProp name="GRPCSampler.port">7070</stringProp>
+          <stringProp name="GRPCSampler.protoFolder">${PROTO_ROOT}</stringProp>
+          <stringProp name="GRPCSampler.libFolder"></stringProp>
+          <stringProp name="GRPCSampler.fullMethod">hipstershop.CartService/AddItem</stringProp>
+          <stringProp name="GRPCSampler.requestJson">{"user_id":"${__UUID}","item":{"product_id":"${__V(PID_${__Random(1,10)})}","quantity":${__Random(1,5)}}}</stringProp>
+          <stringProp name="GRPCSampler.deadline">3000</stringProp>
+          <boolProp name="GRPCSampler.tls">false</boolProp>
+          <boolProp name="GRPCSampler.tlsDisableVerification">false</boolProp>
+          <stringProp name="GRPCSampler.metadata"></stringProp>
+          <stringProp name="GRPCSampler.channelAwaitTermination">3000</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
+        </vn.zalopay.benchmark.GRPCSampler>
+        <hashTree/>
+        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="CartService/GetCart" enabled="true">
+          <stringProp name="GRPCSampler.host">${TARGET_HOST}</stringProp>
+          <stringProp name="GRPCSampler.port">7070</stringProp>
+          <stringProp name="GRPCSampler.protoFolder">${PROTO_ROOT}</stringProp>
+          <stringProp name="GRPCSampler.libFolder"></stringProp>
+          <stringProp name="GRPCSampler.fullMethod">hipstershop.CartService/GetCart</stringProp>
+          <stringProp name="GRPCSampler.requestJson">{"user_id":"${__UUID}"}</stringProp>
+          <stringProp name="GRPCSampler.deadline">3000</stringProp>
+          <boolProp name="GRPCSampler.tls">false</boolProp>
+          <boolProp name="GRPCSampler.tlsDisableVerification">false</boolProp>
+          <stringProp name="GRPCSampler.metadata"></stringProp>
+          <stringProp name="GRPCSampler.channelAwaitTermination">3000</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
+        </vn.zalopay.benchmark.GRPCSampler>
+        <hashTree/>
+        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="CartService/EmptyCart" enabled="true">
+          <stringProp name="GRPCSampler.host">${TARGET_HOST}</stringProp>
+          <stringProp name="GRPCSampler.port">7070</stringProp>
+          <stringProp name="GRPCSampler.protoFolder">${PROTO_ROOT}</stringProp>
+          <stringProp name="GRPCSampler.libFolder"></stringProp>
+          <stringProp name="GRPCSampler.fullMethod">hipstershop.CartService/EmptyCart</stringProp>
+          <stringProp name="GRPCSampler.requestJson">{"user_id":"${__UUID}"}</stringProp>
+          <stringProp name="GRPCSampler.deadline">3000</stringProp>
+          <boolProp name="GRPCSampler.tls">false</boolProp>
+          <boolProp name="GRPCSampler.tlsDisableVerification">false</boolProp>
+          <stringProp name="GRPCSampler.metadata"></stringProp>
+          <stringProp name="GRPCSampler.channelAwaitTermination">3000</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
+        </vn.zalopay.benchmark.GRPCSampler>
+        <hashTree/>
+      </hashTree>
+
+      <!-- 场景2: ProductCatalogService 100线程 -->
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="ProductCatalogService-100线程">
+        <intProp name="ThreadGroup.num_threads">100</intProp>
+        <intProp name="ThreadGroup.ramp_time">5</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器">
+          <stringProp name="LoopController.loops">100</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="ProductCatalogService/ListProducts" enabled="true">
+          <stringProp name="GRPCSampler.host">${TARGET_HOST}</stringProp>
+          <stringProp name="GRPCSampler.port">3550</stringProp>
+          <stringProp name="GRPCSampler.protoFolder">${PROTO_ROOT}</stringProp>
+          <stringProp name="GRPCSampler.libFolder"></stringProp>
+          <stringProp name="GRPCSampler.fullMethod">hipstershop.ProductCatalogService/ListProducts</stringProp>
+          <stringProp name="GRPCSampler.requestJson">{}</stringProp>
+          <stringProp name="GRPCSampler.deadline">3000</stringProp>
+          <boolProp name="GRPCSampler.tls">false</boolProp>
+          <boolProp name="GRPCSampler.tlsDisableVerification">false</boolProp>
+          <stringProp name="GRPCSampler.metadata"></stringProp>
+          <stringProp name="GRPCSampler.channelAwaitTermination">3000</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
+        </vn.zalopay.benchmark.GRPCSampler>
+        <hashTree/>
+        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="ProductCatalogService/GetProduct" enabled="true">
+          <stringProp name="GRPCSampler.host">${TARGET_HOST}</stringProp>
+          <stringProp name="GRPCSampler.port">3550</stringProp>
+          <stringProp name="GRPCSampler.protoFolder">${PROTO_ROOT}</stringProp>
+          <stringProp name="GRPCSampler.libFolder"></stringProp>
+          <stringProp name="GRPCSampler.fullMethod">hipstershop.ProductCatalogService/GetProduct</stringProp>
+          <stringProp name="GRPCSampler.requestJson">{"id":"${__V(PID_${__Random(1,10)})}"}</stringProp>
+          <stringProp name="GRPCSampler.deadline">3000</stringProp>
+          <boolProp name="GRPCSampler.tls">false</boolProp>
+          <boolProp name="GRPCSampler.tlsDisableVerification">false</boolProp>
+          <stringProp name="GRPCSampler.metadata"></stringProp>
+          <stringProp name="GRPCSampler.channelAwaitTermination">3000</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
+        </vn.zalopay.benchmark.GRPCSampler>
+        <hashTree/>
+        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="ProductCatalogService/SearchProducts" enabled="true">
+          <stringProp name="GRPCSampler.host">${TARGET_HOST}</stringProp>
+          <stringProp name="GRPCSampler.port">3550</stringProp>
+          <stringProp name="GRPCSampler.protoFolder">${PROTO_ROOT}</stringProp>
+          <stringProp name="GRPCSampler.libFolder"></stringProp>
+          <stringProp name="GRPCSampler.fullMethod">hipstershop.ProductCatalogService/SearchProducts</stringProp>
+          <stringProp name="GRPCSampler.requestJson">{"query":"${__RandomFromMultipleVars("vintage|clothing|hat|shirt|shoes|mug")}"}</stringProp>
+          <stringProp name="GRPCSampler.deadline">3000</stringProp>
+          <boolProp name="GRPCSampler.tls">false</boolProp>
+          <boolProp name="GRPCSampler.tlsDisableVerification">false</boolProp>
+          <stringProp name="GRPCSampler.metadata"></stringProp>
+          <stringProp name="GRPCSampler.channelAwaitTermination">3000</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
+        </vn.zalopay.benchmark.GRPCSampler>
+        <hashTree/>
+      </hashTree>
+
+      <!-- 场景3: CheckoutService 100线程 -->
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="CheckoutService-100线程">
+        <intProp name="ThreadGroup.num_threads">100</intProp>
+        <intProp name="ThreadGroup.ramp_time">5</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器">
+          <stringProp name="LoopController.loops">50</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="CheckoutService/PlaceOrder" enabled="true">
+          <stringProp name="GRPCSampler.host">${TARGET_HOST}</stringProp>
+          <stringProp name="GRPCSampler.port">5050</stringProp>
+          <stringProp name="GRPCSampler.protoFolder">${PROTO_ROOT}</stringProp>
+          <stringProp name="GRPCSampler.libFolder"></stringProp>
+          <stringProp name="GRPCSampler.fullMethod">hipstershop.CheckoutService/PlaceOrder</stringProp>
+          <stringProp name="GRPCSampler.requestJson">{"user_id":"${__UUID}","user_currency":"USD","address":{"street_address":"1600 Amphitheatre Parkway","city":"Mountain View","state":"CA","zip_code":"94043","country":"United States"},"email":"someone@example.com","credit_card":{"credit_card_number":"4432-8015-6152-0454","credit_card_expiration_month":1,"credit_card_expiration_year":2027,"credit_card_cvv":672}}</stringProp>
+          <stringProp name="GRPCSampler.deadline">10000</stringProp>
+          <boolProp name="GRPCSampler.tls">false</boolProp>
+          <boolProp name="GRPCSampler.tlsDisableVerification">false</boolProp>
+          <stringProp name="GRPCSampler.metadata"></stringProp>
+          <stringProp name="GRPCSampler.channelAwaitTermination">10000</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
+        </vn.zalopay.benchmark.GRPCSampler>
+        <hashTree/>
+      </hashTree>
+
+      <!-- 场景4: ShippingService 100线程 -->
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="ShippingService-100线程">
+        <intProp name="ThreadGroup.num_threads">100</intProp>
+        <intProp name="ThreadGroup.ramp_time">5</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器">
+          <stringProp name="LoopController.loops">100</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="ShippingService/GetQuote" enabled="true">
+          <stringProp name="GRPCSampler.host">${TARGET_HOST}</stringProp>
+          <stringProp name="GRPCSampler.port">50052</stringProp>
+          <stringProp name="GRPCSampler.protoFolder">${PROTO_ROOT}</stringProp>
+          <stringProp name="GRPCSampler.libFolder"></stringProp>
+          <stringProp name="GRPCSampler.fullMethod">hipstershop.ShippingService/GetQuote</stringProp>
+          <stringProp name="GRPCSampler.requestJson">{"address":{"street_address":"1600 Amphitheatre Parkway","city":"Mountain View","state":"CA","zip_code":"94043","country":"United States"},"items":[{"product_id":"${__V(PID_${__Random(1,10)})}","quantity":${__Random(1,5)}}]}</stringProp>
+          <stringProp name="GRPCSampler.deadline">3000</stringProp>
+          <boolProp name="GRPCSampler.tls">false</boolProp>
+          <boolProp name="GRPCSampler.tlsDisableVerification">false</boolProp>
+          <stringProp name="GRPCSampler.metadata"></stringProp>
+          <stringProp name="GRPCSampler.channelAwaitTermination">3000</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
+        </vn.zalopay.benchmark.GRPCSampler>
+        <hashTree/>
+        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="ShippingService/ShipOrder" enabled="true">
+          <stringProp name="GRPCSampler.host">${TARGET_HOST}</stringProp>
+          <stringProp name="GRPCSampler.port">50052</stringProp>
+          <stringProp name="GRPCSampler.protoFolder">${PROTO_ROOT}</stringProp>
+          <stringProp name="GRPCSampler.libFolder"></stringProp>
+          <stringProp name="GRPCSampler.fullMethod">hipstershop.ShippingService/ShipOrder</stringProp>
+          <stringProp name="GRPCSampler.requestJson">{"address":{"street_address":"1600 Amphitheatre Parkway","city":"Mountain View","state":"CA","zip_code":"94043","country":"United States"},"items":[{"product_id":"${__V(PID_${__Random(1,10)})}","quantity":${__Random(1,3)}}]}</stringProp>
+          <stringProp name="GRPCSampler.deadline">3000</stringProp>
+          <boolProp name="GRPCSampler.tls">false</boolProp>
+          <boolProp name="GRPCSampler.tlsDisableVerification">false</boolProp>
+          <stringProp name="GRPCSampler.metadata"></stringProp>
+          <stringProp name="GRPCSampler.channelAwaitTermination">3000</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
+        </vn.zalopay.benchmark.GRPCSampler>
+        <hashTree/>
+      </hashTree>
+
+      <!-- 场景5: PaymentService 100线程 -->
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="PaymentService-100线程">
+        <intProp name="ThreadGroup.num_threads">100</intProp>
+        <intProp name="ThreadGroup.ramp_time">5</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器">
+          <stringProp name="LoopController.loops">100</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="PaymentService/Charge" enabled="true">
+          <stringProp name="GRPCSampler.host">${TARGET_HOST}</stringProp>
+          <stringProp name="GRPCSampler.port">50051</stringProp>
+          <stringProp name="GRPCSampler.protoFolder">${PROTO_ROOT}</stringProp>
+          <stringProp name="GRPCSampler.libFolder"></stringProp>
+          <stringProp name="GRPCSampler.fullMethod">hipstershop.PaymentService/Charge</stringProp>
+          <stringProp name="GRPCSampler.requestJson">{"amount":{"currency_code":"USD","units":"${__Random(1,999)}","nanos":0},"credit_card":{"credit_card_number":"4432-8015-6152-0454","credit_card_expiration_month":1,"credit_card_expiration_year":2027,"credit_card_cvv":672}}</stringProp>
+          <stringProp name="GRPCSampler.deadline">3000</stringProp>
+          <boolProp name="GRPCSampler.tls">false</boolProp>
+          <boolProp name="GRPCSampler.tlsDisableVerification">false</boolProp>
+          <stringProp name="GRPCSampler.metadata"></stringProp>
+          <stringProp name="GRPCSampler.channelAwaitTermination">3000</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
+        </vn.zalopay.benchmark.GRPCSampler>
+        <hashTree/>
+      </hashTree>
+
+      <!-- 场景6: EmailService 100线程 -->
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="EmailService-100线程">
+        <intProp name="ThreadGroup.num_threads">100</intProp>
+        <intProp name="ThreadGroup.ramp_time">5</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器">
+          <stringProp name="LoopController.loops">100</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="EmailService/SendOrderConfirmation" enabled="true">
+          <stringProp name="GRPCSampler.host">${TARGET_HOST}</stringProp>
+          <stringProp name="GRPCSampler.port">5000</stringProp>
+          <stringProp name="GRPCSampler.protoFolder">${PROTO_ROOT}</stringProp>
+          <stringProp name="GRPCSampler.libFolder"></stringProp>
+          <stringProp name="GRPCSampler.fullMethod">hipstershop.EmailService/SendOrderConfirmation</stringProp>
+          <stringProp name="GRPCSampler.requestJson">{"email":"someone@example.com","order":{"order_id":"${__UUID}","shipping_tracking_id":"${__UUID}","shipping_cost":{"currency_code":"USD","units":"${__Random(1,99)}","nanos":0},"shipping_address":{"street_address":"1600 Amphitheatre Parkway","city":"Mountain View","state":"CA","zip_code":"94043","country":"United States"},"items":[{"item":{"product_id":"${__V(PID_${__Random(1,10)})}","quantity":${__Random(1,3)}},"cost":{"currency_code":"USD","units":"${__Random(1,99)}","nanos":0}}]}}</stringProp>
+          <stringProp name="GRPCSampler.deadline">5000</stringProp>
+          <boolProp name="GRPCSampler.tls">false</boolProp>
+          <boolProp name="GRPCSampler.tlsDisableVerification">false</boolProp>
+          <stringProp name="GRPCSampler.metadata"></stringProp>
+          <stringProp name="GRPCSampler.channelAwaitTermination">5000</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
+        </vn.zalopay.benchmark.GRPCSampler>
+        <hashTree/>
+      </hashTree>
+
+      <!-- 场景7: CurrencyService 100线程 -->
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="CurrencyService-100线程">
+        <intProp name="ThreadGroup.num_threads">100</intProp>
+        <intProp name="ThreadGroup.ramp_time">5</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器">
+          <stringProp name="LoopController.loops">100</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="CurrencyService/GetSupportedCurrencies" enabled="true">
+          <stringProp name="GRPCSampler.host">${TARGET_HOST}</stringProp>
+          <stringProp name="GRPCSampler.port">7000</stringProp>
+          <stringProp name="GRPCSampler.protoFolder">${PROTO_ROOT}</stringProp>
+          <stringProp name="GRPCSampler.libFolder"></stringProp>
+          <stringProp name="GRPCSampler.fullMethod">hipstershop.CurrencyService/GetSupportedCurrencies</stringProp>
+          <stringProp name="GRPCSampler.requestJson">{}</stringProp>
+          <stringProp name="GRPCSampler.deadline">3000</stringProp>
+          <boolProp name="GRPCSampler.tls">false</boolProp>
+          <boolProp name="GRPCSampler.tlsDisableVerification">false</boolProp>
+          <stringProp name="GRPCSampler.metadata"></stringProp>
+          <stringProp name="GRPCSampler.channelAwaitTermination">3000</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
+        </vn.zalopay.benchmark.GRPCSampler>
+        <hashTree/>
+        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="CurrencyService/Convert" enabled="true">
+          <stringProp name="GRPCSampler.host">${TARGET_HOST}</stringProp>
+          <stringProp name="GRPCSampler.port">7000</stringProp>
+          <stringProp name="GRPCSampler.protoFolder">${PROTO_ROOT}</stringProp>
+          <stringProp name="GRPCSampler.libFolder"></stringProp>
+          <stringProp name="GRPCSampler.fullMethod">hipstershop.CurrencyService/Convert</stringProp>
+          <stringProp name="GRPCSampler.requestJson">{"from":{"currency_code":"${__RandomFromMultipleVars("USD|EUR|GBP|JPY|CNY|CAD|AUD|PHP")}","units":"${__Random(1,9999)}","nanos":0},"to_code":"${__RandomFromMultipleVars("USD|EUR|GBP|JPY|CNY|CAD|AUD|PHP")}"}"</stringProp>
+          <stringProp name="GRPCSampler.deadline">3000</stringProp>
+          <boolProp name="GRPCSampler.tls">false</boolProp>
+          <boolProp name="GRPCSampler.tlsDisableVerification">false</boolProp>
+          <stringProp name="GRPCSampler.metadata"></stringProp>
+          <stringProp name="GRPCSampler.channelAwaitTermination">3000</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
+        </vn.zalopay.benchmark.GRPCSampler>
+        <hashTree/>
+      </hashTree>
+
+      <!-- 场景8: RecommendationService 100线程 -->
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="RecommendationService-100线程">
+        <intProp name="ThreadGroup.num_threads">100</intProp>
+        <intProp name="ThreadGroup.ramp_time">5</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器">
+          <stringProp name="LoopController.loops">100</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="RecommendationService/ListRecommendations" enabled="true">
+          <stringProp name="GRPCSampler.host">${TARGET_HOST}</stringProp>
+          <stringProp name="GRPCSampler.port">8080</stringProp>
+          <stringProp name="GRPCSampler.protoFolder">${PROTO_ROOT}</stringProp>
+          <stringProp name="GRPCSampler.libFolder"></stringProp>
+          <stringProp name="GRPCSampler.fullMethod">hipstershop.RecommendationService/ListRecommendations</stringProp>
+          <stringProp name="GRPCSampler.requestJson">{"user_id":"${__UUID}","product_ids":["${__V(PID_${__Random(1,10)})}","${__V(PID_${__Random(1,10)})}"]}</stringProp>
+          <stringProp name="GRPCSampler.deadline">3000</stringProp>
+          <boolProp name="GRPCSampler.tls">false</boolProp>
+          <boolProp name="GRPCSampler.tlsDisableVerification">false</boolProp>
+          <stringProp name="GRPCSampler.metadata"></stringProp>
+          <stringProp name="GRPCSampler.channelAwaitTermination">3000</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
+        </vn.zalopay.benchmark.GRPCSampler>
+        <hashTree/>
+      </hashTree>
+
+      <!-- 场景9: AdService 100线程 -->
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="AdService-100线程">
+        <intProp name="ThreadGroup.num_threads">100</intProp>
+        <intProp name="ThreadGroup.ramp_time">5</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器">
+          <stringProp name="LoopController.loops">100</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="AdService/GetAds" enabled="true">
+          <stringProp name="GRPCSampler.host">${TARGET_HOST}</stringProp>
+          <stringProp name="GRPCSampler.port">9555</stringProp>
+          <stringProp name="GRPCSampler.protoFolder">${PROTO_ROOT}</stringProp>
+          <stringProp name="GRPCSampler.libFolder"></stringProp>
+          <stringProp name="GRPCSampler.fullMethod">hipstershop.AdService/GetAds</stringProp>
+          <stringProp name="GRPCSampler.requestJson">{"context_keys":["${__RandomFromMultipleVars("product|vintage|clothing|camera|hair|skin|mug|shoes")}"]}</stringProp>
+          <stringProp name="GRPCSampler.deadline">3000</stringProp>
+          <boolProp name="GRPCSampler.tls">false</boolProp>
+          <boolProp name="GRPCSampler.tlsDisableVerification">false</boolProp>
+          <stringProp name="GRPCSampler.metadata"></stringProp>
+          <stringProp name="GRPCSampler.channelAwaitTermination">3000</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
+        </vn.zalopay.benchmark.GRPCSampler>
+        <hashTree/>
+      </hashTree>
+
+      <!-- 场景9: AdService 100线程 -->
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="AdService-100线程">
+        <intProp name="ThreadGroup.num_threads">100</intProp>
+        <intProp name="ThreadGroup.ramp_time">5</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器">
+          <stringProp name="LoopController.loops">100</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="AdService/GetAds" enabled="true">
+          <stringProp name="GRPCSampler.host">${TARGET_HOST}</stringProp>
+          <stringProp name="GRPCSampler.port">9555</stringProp>
+          <stringProp name="GRPCSampler.protoFolder">${PROTO_ROOT}</stringProp>
+          <stringProp name="GRPCSampler.libFolder"></stringProp>
+          <stringProp name="GRPCSampler.fullMethod">hipstershop.AdService/GetAds</stringProp>
+          <stringProp name="GRPCSampler.requestJson">{"context_keys":["${__RandomFromMultipleVars("product|vintage|clothing|camera|hair|skin|mug|shoes")}"]}</stringProp>
+          <stringProp name="GRPCSampler.deadline">3000</stringProp>
+          <boolProp name="GRPCSampler.tls">false</boolProp>
+          <boolProp name="GRPCSampler.tlsDisableVerification">false</boolProp>
+          <stringProp name="GRPCSampler.metadata"></stringProp>
+          <stringProp name="GRPCSampler.channelAwaitTermination">3000</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
+        </vn.zalopay.benchmark.GRPCSampler>
+        <hashTree/>
+      </hashTree>
+
+      <Summariser guiclass="SummariserGui" testclass="Summariser" testname="实时进度汇总" enabled="true">
+        <stringProp name="summariser.name">summary</stringProp>
+        <boolProp name="summariser.interval">true</boolProp>
+        <intProp name="summariser.interval_sec">10</intProp>
+        <boolProp name="summariser.use_format">true</boolProp>
+      </Summariser>
+      <hashTree/>
+
+      <ResultCollector guiclass="SimpleDataWriter" testclass="ResultCollector" testname="详细日志写入" enabled="true">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>true</subresults>
+            <responseData>true</responseData>
+            <samplerData>true</samplerData>
+            <xml>true</xml>
+            <fieldNames>true</fieldNames>
+            <responseHeaders>true</responseHeaders>
+            <requestHeaders>true</requestHeaders>
+            <responseDataOnError>true</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+            <hostname>true</hostname>
+          </value>
+        </objProp>
+        <stringProp name="filename">result-extreme/detail-log.jtl</stringProp>
+      </ResultCollector>
+      <hashTree/>
+
+      <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="聚合报告" enabled="false">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>true</subresults>
+            <responseData>false</responseData>
+            <samplerData>false</samplerData>
+            <xml>true</xml>
+            <fieldNames>true</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>false</requestHeaders>
+            <responseDataOnError>false</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+          </value>
+        </objProp>
+        <stringProp name="filename"></stringProp>
+      </ResultCollector>
+      <hashTree/>
+
+      <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="查看结果树" enabled="false">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>true</subresults>
+            <responseData>false</responseData>
+            <samplerData>false</samplerData>
+            <xml>true</xml>
+            <fieldNames>true</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>false</requestHeaders>
+            <responseDataOnError>false</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+          </value>
+        </objProp>
+        <stringProp name="filename"></stringProp>
+      </ResultCollector>
+      <hashTree/>
+
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

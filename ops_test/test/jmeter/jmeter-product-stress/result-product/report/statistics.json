@@ -1,0 +1,50 @@
+{
+  "GET /product/{id} 随机商品" : {
+    "transaction" : "GET /product/{id} 随机商品",
+    "sampleCount" : 10000,
+    "errorCount" : 2050,
+    "errorPct" : 20.5,
+    "meanResTime" : 1146.2690999999986,
+    "medianResTime" : 1294.0,
+    "minResTime" : 2.0,
+    "maxResTime" : 4255.0,
+    "pct1ResTime" : 1849.0,
+    "pct2ResTime" : 2124.0,
+    "pct3ResTime" : 2859.99,
+    "throughput" : 132.14403700033037,
+    "receivedKBytesPerSec" : 977.7789478031054,
+    "sentKBytesPerSec" : 17.421333002973242
+  },
+  "GET /product-meta/{id} 商品元数据" : {
+    "transaction" : "GET /product-meta/{id} 商品元数据",
+    "sampleCount" : 10000,
+    "errorCount" : 0,
+    "errorPct" : 0.0,
+    "meanResTime" : 188.58700000000027,
+    "medianResTime" : 96.0,
+    "minResTime" : 2.0,
+    "maxResTime" : 2861.0,
+    "pct1ResTime" : 370.0,
+    "pct2ResTime" : 473.9499999999989,
+    "pct3ResTime" : 1103.9899999999998,
+    "throughput" : 132.23839938641382,
+    "receivedKBytesPerSec" : 50.758844372760215,
+    "sentKBytesPerSec" : 18.079468666111268
+  },
+  "Total" : {
+    "transaction" : "Total",
+    "sampleCount" : 20000,
+    "errorCount" : 2050,
+    "errorPct" : 10.25,
+    "meanResTime" : 667.4280500000046,
+    "medianResTime" : 276.0,
+    "minResTime" : 2.0,
+    "maxResTime" : 4255.0,
+    "pct1ResTime" : 1576.0,
+    "pct2ResTime" : 1851.0,
+    "pct3ResTime" : 2489.0,
+    "throughput" : 264.27759718808636,
+    "receivedKBytesPerSec" : 1028.4608003027631,
+    "sentKBytesPerSec" : 35.486493763048706
+  }
+}

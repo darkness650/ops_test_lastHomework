@@ -1,0 +1,50 @@
+{
+  "Total" : {
+    "transaction" : "Total",
+    "sampleCount" : 160000,
+    "errorCount" : 151774,
+    "errorPct" : 94.85875,
+    "meanResTime" : 54.774031250000064,
+    "medianResTime" : 0.0,
+    "minResTime" : 0.0,
+    "maxResTime" : 12152.0,
+    "pct1ResTime" : 0.0,
+    "pct2ResTime" : 0.0,
+    "pct3ResTime" : 1.0,
+    "throughput" : 2514.3000817147527,
+    "receivedKBytesPerSec" : 58.01445120981048,
+    "sentKBytesPerSec" : 0.0
+  },
+  "EmailService/SendOrderConfirmation" : {
+    "transaction" : "EmailService/SendOrderConfirmation",
+    "sampleCount" : 80000,
+    "errorCount" : 73058,
+    "errorPct" : 91.3225,
+    "meanResTime" : 74.32346249999901,
+    "medianResTime" : 0.0,
+    "minResTime" : 0.0,
+    "maxResTime" : 12152.0,
+    "pct1ResTime" : 0.0,
+    "pct2ResTime" : 0.0,
+    "pct3ResTime" : 1.0,
+    "throughput" : 2280.8918287050237,
+    "receivedKBytesPerSec" : 49.411935301077726,
+    "sentKBytesPerSec" : 0.0
+  },
+  "RecommendationService/ListRecommendations" : {
+    "transaction" : "RecommendationService/ListRecommendations",
+    "sampleCount" : 80000,
+    "errorCount" : 78716,
+    "errorPct" : 98.395,
+    "meanResTime" : 35.224600000000265,
+    "medianResTime" : 0.0,
+    "minResTime" : 0.0,
+    "maxResTime" : 6899.0,
+    "pct1ResTime" : 0.0,
+    "pct2ResTime" : 0.0,
+    "pct3ResTime" : 1.0,
+    "throughput" : 2826.6553600452266,
+    "receivedKBytesPerSec" : 69.20830324491202,
+    "sentKBytesPerSec" : 0.0
+  }
+}
