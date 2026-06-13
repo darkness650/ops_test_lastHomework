@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Cart + Checkout gRPC 依赖压测" enabled="true">
+      <stringProp name="TestPlan.comments"></stringProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">true</boolProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="用户自定义变量" enabled="true">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="TARGET_HOST" elementType="Argument">
+            <stringProp name="Argument.name">TARGET_HOST</stringProp>
+            <stringProp name="Argument.value">localhost</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="CART_HOST" elementType="Argument">
+            <stringProp name="Argument.name">CART_HOST</stringProp>
+            <stringProp name="Argument.value">localhost</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="CHECKOUT_HOST" elementType="Argument">
+            <stringProp name="Argument.name">CHECKOUT_HOST</stringProp>
+            <stringProp name="Argument.value">localhost</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="CART_PORT" elementType="Argument">
+            <stringProp name="Argument.name">CART_PORT</stringProp>
+            <stringProp name="Argument.value">7070</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="CHECKOUT_PORT" elementType="Argument">
+            <stringProp name="Argument.name">CHECKOUT_PORT</stringProp>
+            <stringProp name="Argument.value">5050</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PROTO_ROOT" elementType="Argument">
+            <stringProp name="Argument.name">PROTO_ROOT</stringProp>
+            <stringProp name="Argument.value">d:/code/github/Online-Boutique/protos</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_1" elementType="Argument">
+            <stringProp name="Argument.name">PID_1</stringProp>
+            <stringProp name="Argument.value">OLJCESPC7Z</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_2" elementType="Argument">
+            <stringProp name="Argument.name">PID_2</stringProp>
+            <stringProp name="Argument.value">LS4PSXUNUM</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_3" elementType="Argument">
+            <stringProp name="Argument.name">PID_3</stringProp>
+            <stringProp name="Argument.value">9SIQT6ULQW</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_4" elementType="Argument">
+            <stringProp name="Argument.name">PID_4</stringProp>
+            <stringProp name="Argument.value">0PUK6V6EV0</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_5" elementType="Argument">
+            <stringProp name="Argument.name">PID_5</stringProp>
+            <stringProp name="Argument.value">1YMWWN1N4O</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_6" elementType="Argument">
+            <stringProp name="Argument.name">PID_6</stringProp>
+            <stringProp name="Argument.value">2ZYFJ3GM2N</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_7" elementType="Argument">
+            <stringProp name="Argument.name">PID_7</stringProp>
+            <stringProp name="Argument.value">66VCHSJNUP</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_8" elementType="Argument">
+            <stringProp name="Argument.name">PID_8</stringProp>
+            <stringProp name="Argument.value">6E92ZMYYFZ</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_9" elementType="Argument">
+            <stringProp name="Argument.name">PID_9</stringProp>
+            <stringProp name="Argument.value">9QT0DCM7VX</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_10" elementType="Argument">
+            <stringProp name="Argument.name">PID_10</stringProp>
+            <stringProp name="Argument.value">L9ECAV7KIM</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+        </collectionProp>
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+
+      <!-- ==================== ThreadGroup 1: CartService ==================== -->
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="CartService-100线程" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器" enabled="true">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <stringProp name="LoopController.loops">10</stringProp>
+        </elementProp>
+        <longProp name="ThreadGroup.start_time">1680000000000</longProp>
+        <longProp name="ThreadGroup.end_time">1680000000000</longProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
+        <intProp name="ThreadGroup.num_threads">100</intProp>
+        <intProp name="ThreadGroup.ramp_time">20</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+      </ThreadGroup>
+      <hashTree>
+        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="CartService/AddItem" enabled="true">
+          <stringProp name="GRPCSampler.host">${CART_HOST}</stringProp>
+          <stringProp name="GRPCSampler.port">${CART_PORT}</stringProp>
+          <stringProp name="GRPCSampler.protoFolder">${PROTO_ROOT}</stringProp>
+          <stringProp name="GRPCSampler.libFolder"></stringProp>
+          <stringProp name="GRPCSampler.fullMethod">hipstershop.CartService/AddItem</stringProp>
+          <stringProp name="GRPCSampler.requestJson">{"user_id":"user-${__threadNum}","item":{"product_id":"${__V(PID_${__Random(1,10,randIdx)})}","quantity":${__Random(1,5,qty)}}}</stringProp>
+          <stringProp name="GRPCSampler.deadline">30000</stringProp>
+          <boolProp name="GRPCSampler.tls">false</boolProp>
+          <boolProp name="GRPCSampler.tlsDisableVerification">false</boolProp>
+          <stringProp name="GRPCSampler.metadata"></stringProp>
+          <stringProp name="GRPCSampler.channelAwaitTermination">30000</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
+        </vn.zalopay.benchmark.GRPCSampler>
+        <hashTree/>
+
+        <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="固定定时器" enabled="true">
+          <stringProp name="ConstantTimer.delay">100</stringProp>
+        </ConstantTimer>
+        <hashTree/>
+      </hashTree>
+
+      <!-- ==================== ThreadGroup 2: CheckoutService ==================== -->
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="CheckoutService-100线程" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器" enabled="true">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <stringProp name="LoopController.loops">10</stringProp>
+        </elementProp>
+        <longProp name="ThreadGroup.start_time">1680000000000</longProp>
+        <longProp name="ThreadGroup.end_time">1680000000000</longProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
+        <intProp name="ThreadGroup.num_threads">100</intProp>
+        <intProp name="ThreadGroup.ramp_time">20</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+      </ThreadGroup>
+      <hashTree>
+        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="CheckoutService/PlaceOrder" enabled="true">
+          <stringProp name="GRPCSampler.host">${CHECKOUT_HOST}</stringProp>
+          <stringProp name="GRPCSampler.port">${CHECKOUT_PORT}</stringProp>
+          <stringProp name="GRPCSampler.protoFolder">${PROTO_ROOT}</stringProp>
+          <stringProp name="GRPCSampler.libFolder"></stringProp>
+          <stringProp name="GRPCSampler.fullMethod">hipstershop.CheckoutService/PlaceOrder</stringProp>
+          <stringProp name="GRPCSampler.requestJson">{"user_id":"user-${__threadNum}","user_currency":"USD","address":{"street_address":"1600 Amphitheatre Pkwy","city":"Mountain View","state":"CA","country":"United States","zip_code":94043},"email":"buyer-${__threadNum}@example.com","credit_card":{"credit_card_number":"4432-8015-6152-0454","credit_card_cvv":672,"credit_card_expiration_year":2030,"credit_card_expiration_month":1}}</stringProp>
+          <stringProp name="GRPCSampler.deadline">60000</stringProp>
+          <boolProp name="GRPCSampler.tls">false</boolProp>
+          <boolProp name="GRPCSampler.tlsDisableVerification">false</boolProp>
+          <stringProp name="GRPCSampler.metadata"></stringProp>
+          <stringProp name="GRPCSampler.channelAwaitTermination">60000</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
+        </vn.zalopay.benchmark.GRPCSampler>
+        <hashTree/>
+
+        <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="固定定时器" enabled="true">
+          <stringProp name="ConstantTimer.delay">200</stringProp>
+        </ConstantTimer>
+        <hashTree/>
+      </hashTree>
+
+      <!-- ==================== Summariser ==================== -->
+      <Summariser guiclass="SummariserGui" testclass="Summariser" testname="实时进度汇总" enabled="true">
+        <stringProp name="summariser.name">summary</stringProp>
+        <boolProp name="summariser.interval">true</boolProp>
+        <intProp name="summariser.interval_sec">10</intProp>
+        <boolProp name="summariser.use_format">true</boolProp>
+      </Summariser>
+      <hashTree/>
+
+      <!-- ==================== Result Collector: All Results ==================== -->
+      <ResultCollector guiclass="SimpleDataWriter" testclass="ResultCollector" testname="详细日志写入" enabled="true">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>true</subresults>
+            <responseData>false</responseData>
+            <samplerData>false</samplerData>
+            <xml>false</xml>
+            <fieldNames>false</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>false</requestHeaders>
+            <responseDataOnError>true</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+            <hostname>true</hostname>
+          </value>
+        </objProp>
+        <stringProp name="filename">result-cart-checkout/detail-log.jtl</stringProp>
+      </ResultCollector>
+      <hashTree/>
+
+      <!-- ==================== Result Collector: Errors Only ==================== -->
+      <ResultCollector guiclass="SimpleDataWriter" testclass="ResultCollector" testname="错误请求详细记录" enabled="true">
+        <boolProp name="ResultCollector.error_logging">true</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>true</subresults>
+            <responseData>false</responseData>
+            <samplerData>false</samplerData>
+            <xml>false</xml>
+            <fieldNames>false</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>false</requestHeaders>
+            <responseDataOnError>true</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+            <hostname>true</hostname>
+          </value>
+        </objProp>
+        <stringProp name="filename">result-cart-checkout/error-log.jtl</stringProp>
+      </ResultCollector>
+      <hashTree/>
+
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>
