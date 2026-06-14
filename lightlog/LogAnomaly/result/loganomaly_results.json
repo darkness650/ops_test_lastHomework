@@ -1,0 +1,28 @@
+{
+  "method": "LogAnomaly",
+  "threshold": 0.9000000000000001,
+  "precision": 0.9609633244136628,
+  "recall": 0.9652173913043478,
+  "f1": 0.9630856601987695,
+  "roc_auc": 0.997514781745372,
+  "avg_precision": 0.9824124508248651,
+  "confusion_matrix": [
+    [
+      217863,
+      248
+    ],
+    [
+      220,
+      6105
+    ]
+  ],
+  "n_test": 224436,
+  "n_normal": 218111,
+  "n_abnormal": 6325,
+  "config": {
+    "lstm_layers": 2,
+    "lstm_hidden": 128,
+    "max_seq_len": 20,
+    "seq_feat_dim": 20
+  }
+}
