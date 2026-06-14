@@ -8,7 +8,6 @@ from typing import cast
 
 import pandas as pd
 
-
 EventName = str
 ManualFilterKey = tuple[str, str]
 
@@ -263,7 +262,7 @@ VALUE_RE = re.compile(r"^\s*([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)\s*(.
 FILENAME_RE = re.compile(r"[^A-Za-z0-9]+")
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE_ROOT = PROJECT_ROOT.parent
-DEFAULT_METRICS_ROOT = WORKSPACE_ROOT / "ops_test" / "ops" / "metrics"
+DEFAULT_METRICS_ROOT = WORKSPACE_ROOT / "ops" / "metrics"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "OPS"
 
 
@@ -275,7 +274,7 @@ def parse_args() -> argparse.Namespace:
         "--metrics-root",
         type=Path,
         default=DEFAULT_METRICS_ROOT,
-        help="Path to raw ops_test/ops/metrics.",
+        help="Path to raw /ops/metrics.",
     )
     parser.add_argument(
         "--output-dir",
@@ -493,7 +492,9 @@ def process_ops_metrics(
     upper_quantile: float = 0.99,
 ) -> pd.DataFrame:
     if not 0 <= lower_quantile < upper_quantile <= 1:
-        raise ValueError("--lower-quantile and --upper-quantile must satisfy 0 <= lower < upper <= 1")
+        raise ValueError(
+            "--lower-quantile and --upper-quantile must satisfy 0 <= lower < upper <= 1"
+        )
 
     metrics_root = Path(metrics_root).resolve()
     output_dir = Path(output_dir).resolve()

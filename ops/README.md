@@ -28,10 +28,14 @@ minikube start `
 
 ## 部署项目
 
+```bash
+cd ops
+```
+
 ### 微服务
 
 ```bash
-kubectl apply -f ops_test/ops/kubernetes-manifests.yaml
+kubectl apply -f kubernetes-manifests.yaml
 ```
 
 ### Prometheus + Grafana
@@ -62,34 +66,13 @@ Write-Host "Grafana admin password: $password"
 
 > Nearly all default values exported by Prometheus node exporter graphed.
 
-### Elasticsearch + Kibana（可选）
+### Fluentd 日志收集 + Kibana
 
 ```bash
-kubectl apply -f ops_test/ops/manifests-logging/
+kubectl apply -f manifests-logging/
 ```
 
-初始化Elasticsearch
-
-```bash
-kubectl get pods -n kube-system
-# 找到elasticsearch的pod名称，例如elasticsearch-xxxxx
-kubectl exec -it elasticsearch-7b7b648484-zv7fr -n kube-system -- /bin/bash
-```
-
-进入pod后，执行以下命令：
-
-```bash
-cd /usr/share/elasticsearch/
-bin/elasticsearch-create-enrollment-token -s kibana
-```
-
-复制生成的token，退出pod。使用minikube的端口转发功能启动kibana：
-
-```bash
-minikube service kibana -n kube-system
-```
-
-在浏览器中粘贴刚才的token。
+注：收集日志需要在创建minikube的时候指定数据卷挂载，根据你想要存放目录的位置进行挂载
 
 ### Chaos Mesh
 
@@ -101,7 +84,7 @@ helm install chaos-mesh chaos-mesh/chaos-mesh --namespace chaos-testing --create
 将仓库内的rbac.yaml应用到集群，然后生成Token，配置Chaos Mesh Dashboard的权限：
 
 ```bash
-kubectl apply -f ops_test/ops/rbac.yaml
+kubectl apply -f rbac.yaml
 kubectl -n default create token account-cluster-manager-rqtnz
 minikube service chaos-dashboard -n chaos-testing
 ```

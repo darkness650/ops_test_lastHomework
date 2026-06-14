@@ -76,7 +76,7 @@ data/Yahoo/A4Benchmark/*.csv
 本仓库的微服务部署与 Chaos Mesh 故障注入实验指标位于：
 
 ```text
-../ops_test/ops/metrics/
+../ops/metrics/
 ```
 
 ## 复现流程
@@ -173,7 +173,7 @@ uv run main.py preprocess-ops
 默认读取原始指标：
 
 ```text
-../ops_test/ops/metrics/
+../ops/metrics/
 ```
 
 默认写出：

@@ -231,9 +231,7 @@ def run_ops(config: DetectionConfig, data_dir: str | Path) -> None:
             label = data_df["label"].to_numpy(dtype=int)
 
             if len(value) <= min_train_len:
-                raise ValueError(
-                    f"序列长度 {len(value)} 不足以初始化 s_w={config.s_w} 的检测窗口"
-                )
+                raise ValueError(f"序列长度 {len(value)} 不足以初始化 s_w={config.s_w} 的检测窗口")
 
             train_len = (
                 default_ops_train_len(label, len(value), min_train_len)
