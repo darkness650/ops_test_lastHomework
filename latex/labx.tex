@@ -1,0 +1,277 @@
+%!TEX program = xelatex
+\documentclass[a4paper,12pt]{report}
+\usepackage{indentfirst} 
+\usepackage{ctex}
+%\usepackage{xeCJK}
+\usepackage{times}
+\usepackage{graphicx,float}
+\usepackage{setspace}
+\usepackage{fancyhdr}
+% \usepackage{graphicx}
+\usepackage{wrapfig}
+\usepackage{array}
+\usepackage{fontspec,xunicode,xltxtra}
+\usepackage{titlesec}
+\usepackage{titletoc}
+\usepackage[titletoc]{appendix}
+\usepackage[top=30mm,bottom=30mm,left=20mm,right=20mm]{geometry}
+\usepackage{cite}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage[framed,numbered,autolinebreaks,useliterate]{mcode} % 插入代码
+\XeTeXlinebreaklocale "zh"
+\XeTeXlinebreakskip = 0pt plus 1pt minus 0.1pt
+
+%---------------------------------------------------------------------
+%	页眉页脚设置
+%---------------------------------------------------------------------
+\fancypagestyle{plain}{
+	\pagestyle{fancy}      %改变章节首页页眉
+}
+
+\pagestyle{fancy}
+\lhead{\kaishu~``软件测试与维护''实验报告~}
+\rhead{\kaishu~~大作业实验报告}
+\cfoot{\thepage}
+
+%---------------------------------------------------------------------
+%	章节标题设置
+%---------------------------------------------------------------------
+\titleformat{\chapter}{\centering\zihao{-1}\heiti}{实验\chinese{chapter}}{1em}{}
+\titlespacing{\chapter}{0pt}{*0}{*6}
+
+%---------------------------------------------------------------------
+%	摘要标题设置
+%---------------------------------------------------------------------
+\renewcommand{\abstractname}{\zihao{-3} 摘\quad 要}
+
+%---------------------------------------------------------------------
+%	参考文献设置
+%---------------------------------------------------------------------
+\renewcommand{\bibname}{\zihao{2}{\hspace{\fill}参\hspace{0.5em}考\hspace{0.5em}文\hspace{0.5em}献\hspace{\fill}}}
+
+%---------------------------------------------------------------------
+%	引用文献设置为上标
+%---------------------------------------------------------------------
+\makeatletter
+\def\@cite#1#2{\textsuperscript{[{#1\if@tempswa , #2\fi}]}}
+\makeatother
+
+%---------------------------------------------------------------------
+%	目录页设置
+%---------------------------------------------------------------------
+\titlecontents{chapter}[0em]{\songti\zihao{-4}}{\thecontentslabel\ }{}
+{\hspace{.5em}\titlerule*[4pt]{$\cdot$}\contentspage}
+\titlecontents{section}[2em]{\vspace{0.1\baselineskip}\songti\zihao{-4}}{\thecontentslabel\ }{}
+{\hspace{.5em}\titlerule*[4pt]{$\cdot$}\contentspage}
+\titlecontents{subsection}[4em]{\vspace{0.1\baselineskip}\songti\zihao{-4}}{\thecontentslabel\ }{}
+{\hspace{.5em}\titlerule*[4pt]{$\cdot$}\contentspage}
+
+\renewcommand\thesection{\arabic{section}}
+\renewcommand\thesubsection{\arabic{section}.\arabic{subsection}}
+
+\begin{document}
+%---------------------------------------------------------------------
+%	封面设置
+%---------------------------------------------------------------------
+\begin{titlepage}
+	\begin{center}
+		
+    \includegraphics[width=1.0\textwidth]{figure//nankai.jpg}\\
+    % \vspace{10mm}
+    % \textbf{\zihao{2}\kaishu{软件学院}}\\[0.8cm]
+    \vspace{50mm}
+    \textbf{\zihao{1}\heiti{ 《软件测试与维护》实验报告}}\\[1cm]
+    \textbf{\zihao{2}\heiti{ (2025\textasciitilde2026学年第二学期)}}\\[1cm]
+    %\textbf{\zihao{2}\heiti{ 实验1: Wireshark软件使用与ARP协议分析}}\\[2cm]
+	\vspace{\fill}
+	
+\setlength{\extrarowheight}{2mm}
+{\songti\zihao{3}	
+\begin{tabular}{rl}
+
+	{\makebox[4\ccwd][s]{实验名称：}}& ~\kaishu 软件测试与维护大作业\\
+	{\makebox[4\ccwd][s]{学\qquad 院：}}& ~\kaishu 软件学院\\
+		{\makebox[4\ccwd][s]{姓\qquad 名：}}& ~\kaishu 第九组\\
+
+	{\makebox[4\ccwd][s]{指导老师：}} & ~\kaishu 张圣林\\
+
+\end{tabular}
+ }\\[2cm]
+\vspace{\fill}
+\zihao{4}
+%2023\textasciitilde 2023秋季学期\\
+%使用\LaTeX 撰写于
+    \today
+	\end{center}	
+\end{titlepage}
+
+
+%---------------------------------------------------------------------
+%  目录页
+%---------------------------------------------------------------------
+\tableofcontents % 生成目录
+
+%---------------------------------------------------------------------
+%  实验一
+%---------------------------------------------------------------------
+\chapter*{软件测试与维护大作业}
+\setcounter{page}{1}
+\begin{spacing}{1.5}
+\songti\zihao{-4}
+
+\section{分工情况与项目概述}
+\subsection*{分工情况}
+    \begin{center}
+    \begin{table*}[h]
+        \centering
+        \renewcommand{\arraystretch}{1.5}  % 增加行高，使内容更舒适
+        \begin{tabular}{|c|c|c|}  % 列数改为3列
+            \hline
+            \textbf{学号} & \textbf{姓名} & \textbf{    主要分工    } \\
+            \hline
+            2311189 & 兰子毅 & 
+            \begin{minipage}[t]{12cm}
+               在已有微服务系统的基础上增加inventory和restock两个微服务
+            \end{minipage} \\
+            \hline
+            2312454 & 张乐 & 
+            \begin{minipage}[t]{12cm}
+                部署、故障注入与监控、指标数据采集分析、指标论文复现
+            \end{minipage} \\
+            \hline
+            2311269 & 孙威旺 & 
+            \begin{minipage}[t]{12cm}
+                对微服务进行测试，生成论文复现用数据集，复现LogRobust，协助完成论文对比实验
+            \end{minipage} \\
+            \hline
+            2312432 & 方言 & 
+            \begin{minipage}[t]{12cm}
+                复现Lightlog并对其进行消融测试，复现LogAnomaly，并进行LightLog与其他论文的对比实验
+            \end{minipage} \\
+            \hline
+            2312330 & 赵文卓 & 
+            \begin{minipage}[t]{12cm}
+                运维智能体前后端、命令行端全部开发、运行、测试
+            \end{minipage} \\
+            \hline
+        \end{tabular}
+        \caption{小组成员分工表（排名不分先后，按报告负责顺序）}
+        \label{tab:team_division}
+    \end{table*}
+\end{center}
+
+\subsection*{项目概述}
+
+本项目基于Minikube Kubernetes 集群与 Docker 容器化技术，完成了完整的微服务部
+署、自动化测试、监控运维与异常检测全流程实验。
+
+项目部署Online-Boutique开源微服务集
+群，搭配PrometheusGrafana 搭建监控体系，利用ChaosMesh注入各类故障，通过Selenium、
+JMeter 分别完成系统功能自动化测试与性能压力测试，用采集的真实运维测试数据复现多篇论文
+并进行多种实验。
+
+项目为Online-Boutique开源微服务新开发两个微服务，扩展了其功能。
+
+项目开发一个新型智能体以完成智能化运维任务。
+
+项目源码仓库链接：\url{https://github.com/darkness650/ops_test_lastHomework.git}
+
+本报告各部分由相应分工部分同学完成
+
+\section{微服务系统介绍和开发}
+通过学习 ...,掌握 ...
+
+\section{部署 故障注入与监控 数据采集分析}
+该实验所使用的环境、工具 ...
+
+\section{项目测试与LightLog复现}
+\subsection*{项目测试}
+\subsubsection*{Selenium IDE测试}
+
+\subsubsection*{Jmeter自动化测试}
+
+
+\subsection*{数据集构建}
+
+
+
+\subsection*{LightLog复现及其消融与对比实验}
+\subsubsection*{LightLog复现}
+
+\subsubsection*{LightLog消融实验}
+
+\subsubsection*{LogAnomaly与LogRobust的复现及对比实验}
+
+\paragraph{LogAnomaly原理}
+
+\paragraph{LogRobust原理}
+
+\paragraph{对比实验结果及分析}
+\section{智能体运维}
+通过这次实验记录自己在本次实验中所遇到的问题，以及心得感悟即相关问题和解决方法。如果遇到异常情况，或者无法完成任务时，也请分析错误产生的原因。
+
+\section{总结与展望}
+
+\begin{thebibliography}{99}
+
+\bibitem{wang2022lightlog}
+Zumin Wang, Jiyu Tian, Hui Fang, Liming Chen, and Jing Qin.
+\newblock LightLog: A lightweight temporal convolutional network for log anomaly detection on the edge.
+\newblock \emph{Computer Networks}, 203:108616, 2022.
+
+\bibitem{zhang2019robust}
+Xu Zhang, Yong Xu, Qingwei Lin, Bo Qiao, Hongyu Zhang, Yingnong Dang, Chunyu Xie, Xinsheng Yang, Qian Cheng, Ze Li, Junjie Chen, Xiaoting He, Randolph Yao, Jian-Guang Lou, Murali Chintalapati, Furao Shen, and Dongmei Zhang.
+\newblock Robust log-based anomaly detection on unstable log data.
+\newblock In \emph{Proceedings of the 2019 27th ACM Joint Meeting on European Software Engineering Conference and Symposium on the Foundations of Software Engineering (ESEC/FSE 2019)}, pages 807--817, 2019.
+
+\bibitem{meng2019loganomaly}
+Weibin Meng, Ying Liu, Yichen Zhu, Shenglin Zhang, Dan Pei, Yuqing Liu, Yihao Chen, Ruizhi Zhang, Shimin Tao, Pei Sun, et al.
+\newblock Loganomaly: Unsupervised detection of sequential and quantitative anomalies in unstructured logs.
+\newblock In \emph{IJCAI}, volume 19, pages 4739--4745, 2019.
+
+\bibitem{li2021fluxev}
+Jia Li, Shimin Di, Yanyan Shen, and Lei Chen.
+\newblock FluxEV: A fast and effective unsupervised framework for time-series anomaly detection.
+\newblock In \emph{Proceedings of the 14th ACM International Conference on Web Search and Data Mining (WSDM '21)}, pages 824--832, 2021.
+
+\end{thebibliography}
+\section{附录}
+\end{spacing}
+
+
+%---------------------------------------------------------------------
+%  参考文献设置
+%---------------------------------------------------------------------
+% \addcontentsline{toc}{chapter}{参考文献}
+
+% \begin{thebibliography}{99}
+% \songti \zihao{-4} 	
+% 	\bibitem{Leslie.{1994}}
+% 	Leslie Lamport. LATEX: A Document Preparation System.AddisonWesley, Reading, Massachusetts, second edition, 1994, ISBN 0-201-52983-1.
+	
+% 	\bibitem{Donald.{1984}}
+% 	Donald E. Knuth. The TEXbook, Volume A of Computers and Typesetting,Addison Wesley, Reading, Massachusetts, second edition, 1984,ISBN 0-201-13448-9.
+
+	
+% \end{thebibliography}
+
+%---------------------------------------------------------------------
+%  附录设置
+%---------------------------------------------------------------------
+% \titleformat{\chapter}{\heiti\Large}{附录~\Alph{chapter}}{11pt}{\Large}
+% \titlespacing{\chapter}{0pt}{*-4}{*4}
+
+% \lstset{breaklines}                %自动将长的代码行换行排版
+% \lstset{extendedchars=false}
+% \lstset{language=Matlab}
+% \renewcommand{\thechapter}{附录\Alph{chapter}.}
+% \appendix
+% \begin{appendix}
+	
+	
+
+% \end{appendix}
+		
+
+\end{document}
