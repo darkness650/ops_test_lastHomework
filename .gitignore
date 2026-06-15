@@ -4,3 +4,15 @@ dataset/
 *.jtl
 # 如果需要忽略特定日志文件
 *.log
+# 忽略 latex 目录下的所有内容
+latex/*
+
+# 但保留 .tex 文件
+!latex/*.tex
+
+# 但保留 figure 文件夹（及其所有内容）
+!latex/figure/
+!latex/figure/**
+
+.idea
+.vscode
