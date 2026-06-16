@@ -178,8 +178,6 @@ JMeter 分别完成系统功能自动化测试与性能压力测试，用采集�
 
 项目源码仓库链接：\url{https://github.com/darkness650/ops_test_lastHomework.git}
 
-本报告各部分由相应分工部分同学完成
-
 \section{微服务系统介绍和开发}
 通过学习 ...,掌握 ...
 
@@ -202,6 +200,7 @@ JMeter 分别完成系统功能自动化测试与性能压力测试，用采集�
 \end{figure}
 \subsection*{Jmeter自动化测试}
 
+我们使用Jmeter进行自动化测试，设计了多组设计样例，由于我们的微服务部署在k8s中无法直接请求，所以我们使用了通道技术（minikube tunnel），我们的测试分为压力测试和边界值分析测试，其中压力测试首先对前端直发http请求进行压测，但考虑到网关
 
 
 
