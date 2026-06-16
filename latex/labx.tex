@@ -6,6 +6,10 @@
 \usepackage{times}
 \usepackage{graphicx,float}
 \usepackage{subcaption}
+\usepackage{booktabs}   % 三线表（\toprule, \midrule, \bottomrule）
+\usepackage{array}      % 增强表格列格式（可选）
+\usepackage{multirow}   % 合并单元格（可选）
+\usepackage{threeparttable} % 带注释的表格（可选）
 \usepackage{setspace}
 \usepackage{fancyhdr}
 % \usepackage{graphicx}
@@ -262,9 +266,82 @@ Online Boutique 原始系统以 \texttt{frontend} 作为用户入口，浏览器
 \end{figure}
 \subsection*{Jmeter自动化测试}
 
-我们使用Jmeter进行自动化测试，设计了多组设计样例，由于我们的微服务部署在k8s中无法直接请求，所以我们使用了通道技术（minikube tunnel），我们的测试分为压力测试和边界值分析测试，其中压力测试首先对前端直发http请求进行压测，但考虑到网关
+我们使用Jmeter进行自动化测试，设计了多组设计样例，由于我们的微服务部署在k8s中无法直接请求，所以我们使用了通道技术（minikube tunnel），我们的测试分为压力测试和边界值分析测试，其中压力测试首先对前端直发http请求进行压测，但考虑到前端网关是单pod接受压力，测试效果并不好，所以我们使用了jmeter的grpc请求插件，并通过通道将容器内的微服务暴露到宿主机上进行压测，但这样操作会因为通道自身限制无法将性能发挥到极致，于是我们构想了将jmeter打进pod内直接对微服务进行压测，但由于我们的电脑配置不足，直接进行pod内压测会导致minikube崩溃，最终我们遗憾地未完成该构想。
 
+在grpc的压力测试组中，我们设计了多组样例，其中我们进行了针对全部服务的grpc压测，针对有依赖关系的两个微服务的定向测试，和容易成为薄弱点的recommend和email微服务的定点测试（我们发现这两个微服务由python编写，而python的并发量相比Java和go差一些）。由于我们进行了很多种测试，由于篇幅原因，我们在这里挑出一些最具代表性的测试进行分析
 
+\begin{table}[htbp]
+	\centering
+	\caption{JMeter 压测脚本详情（部分）}
+	\label{tab:jmeter_tests}
+	\resizebox{\textwidth}{!}{%
+		\begin{tabular}{lrrrrrrrl}
+			\toprule
+			\textbf{测试脚本} & \textbf{总线程数} & \textbf{总采样数} & \textbf{错误数} & \textbf{错误率} & \textbf{平均响应时间} & \textbf{P99} & \textbf{吞吐量 (req/s)} & \textbf{测试类型} \\
+			\midrule
+			jmeter-all-apis.jmx & 130 & 35,280 & 2,884 & 8.17\% & 352.85\,ms & 1,740.98\,ms & 50.96 & 混合场景压测 \\
+			jmeter-grpc-extreme.jmx & 500 & 155,000 & 28,839 & 18.61\% & 91.56\,ms & 348.99\,ms & 981.82 & 极限压测 \\
+			test-http-all-easyerror & 2,900 & 2,900 & 1,850 & 63.79\% & 275.35\,ms & 4,160\,ms & 34.10 & 边界值/安全测试 \\
+			jmeter-checkout-currency & 800 & 1,600 & 0 & 0\% & 63.26\,ms & 98.98\,ms & 5.41 & gRPC 依赖链压测 \\
+			jmeter-rec-email & 800 & 160,000 & 151,774 & 94.86\% & 54.77\,ms & 1\,ms & 2,514.30 & 极限压测(高失败率) \\
+			\bottomrule
+		\end{tabular}%
+	}
+\end{table}
+表\ref{tab:jmeter_tests}展示了主要测试脚本的基本信息和测试结果，其中jmeter-all-apis是http协议请求压测，test-http-all-easyerror是边界测试，我们将在后面详细介绍边界测试的具体内容。
+\subsubsection{压力测试}
+
+如我们预想的一样，推荐微服务和邮件微服务的处理能力相较其他微服务来说较差，平均响应时间较低的原因是很多请求还未被处理就已失败，800线程20轮的压测使两个微服务的请求堆积严重，导致出现请求越多放弃越多的雪崩情况。all-apis的平均响应时间和P99表明其到压测后期也出现了请求堆积严重的状况，由于所有的压力全都打到了前端pod上，所以其情况比下面的grpc压测差也是可以预料到的。
+
+grpc压测设置为500线程压测，其错误率高可能是因为某个微服务成为了性能瓶颈，这种瓶颈在直接平等压测后端的测试中被放大导致出现了这样的情况。由于800线程20轮压测推荐和邮件微服务发现最终请求堆积严重，在进行依赖微服务压测的时候我们将轮数调至两轮压测存在依赖关系的微服务，其处理能力非常优秀，但我们在详细信息中仍看到了我们预测的结果
+
+\begin{table}[htbp]
+	\centering
+	\caption{CurrencyService 与 CheckoutService 响应时间分析}
+	\label{tab:currency_checkout_perf}
+	\begin{tabular}{lrrrr}
+		\toprule
+		\textbf{服务} & \textbf{平均响应时间} & \textbf{中位数} & \textbf{P99} & \textbf{评估} \\
+		\midrule
+		CurrencyService & 56.18\,ms & 53\,ms & 90\,ms & 响应极快 \\
+		CheckoutService & 70.33\,ms & 55\,ms & 285.34\,ms & 表现良好 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+如表\ref{tab:currency_checkout_perf},虽然currency会被checkout调用且有其他线程同时进行压测，但由于currency的处理速度较快（逻辑较为简单高效），checkout由于要等待currency的返回结果故其平均响应时间和P99均慢于currency
+
+\subsubsection{边界值分析测试与安全测试}
+
+\begin{table}[htbp]
+	\centering
+	\caption{API 测试结果按类别汇总}
+	\label{tab:api_test_summary}
+	\begin{tabular}{lrrrrl}
+		\toprule
+		\textbf{测试类别} & \textbf{用例数} & \textbf{通过数} & \textbf{失败数} & \textbf{通过率} & \textbf{说明} \\
+		\midrule
+		\textbf{正常用例} & 17 & 15 & 2 & 88.2\% & 15个返回预期200；2个功能失败\\
+		\textbf{参数校验} & 8 & 8 & 0 & 100\% & 缺失参数均返回400，校验正确 \\
+		\textbf{数据校验} & 6 & 6 & 0 & 100\% & 无效数据格式均返回400 \\
+		\textbf{边界值} & 8 & 8 & 0 & 100\% & 异常ID/数量/路径均正确处理 \\
+		\textbf{安全测试(SQL注入)} & 5 & 5 & 0 & 100\% & SQL注入均被正确处理 \\
+		\textbf{安全测试(XSS)} & 5 & 5 & 0 & 100\% & XSS注入均被正确处理 \\
+		\textbf{安全测试(路径穿越)} & 3 & 3 & 0 & 100\% & 路径穿越均返回404 \\
+		\textbf{方法测试} & 6 & 6 & 0 & 100\% & 非法方法均返回405 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+在附录的表\ref{tab:api_test_results}中我们给出了所有的边界值测试，在这里我们给出一个聚合的结果表\ref{tab:api_test_summary},可以看到我们所有的边界值与安全注入错误全部正常返回了拒绝请求的预期，而正常用例中出错的两个请求是checkout和bot，根据我们后期对原因的探究与对源码的解析，这里的checkout需要购物车中有商品才可以正常访问，而bot是因为其是调用llm大模型进行商品推荐等操作，而我们并未填写bot所需的apikey，向量数据库连接信息等重要配置。
+
+综合来看，该微服务系统的安全防护和边界值处理能力表现较为扎实。在所有边界值测试用例（异常ID、非法数量、超长输入、不存在的路径等）中，系统均能正确识别并返回对应的错误码（400/404/500），未出现服务崩溃、无限循环或错误数据返回等异常行为。安全测试方面，针对SQL注入、XSS注入和路径穿越攻击的共计13个测试用例全部通过，通过率达100\%，表明系统在输入过滤、参数校验和访问控制层面具备有效的安全防护机制，能够抵御常见的Web攻击向量。
+
+正常用例88.2\%的通过率主要受两个功能性问题影响：一是POST /cart/checkout接口因购物车为空而失败，属于业务前置条件未满足，而非接口逻辑缺陷；二是POST /bot接口因缺乏LLM服务所需的API Key和向量数据库配置而超时，属于部署配置问题，并非代码层面的漏洞。
+
+总体而言，该微服务系统的接口契约遵从度和异常处理鲁棒性表现良好，参数校验、数据校验、边界值处理和非法方法拦截均达到100\%通过率。当前暴露的问题集中在业务链路完整性（checkout依赖购物车状态）和第三方服务集成配置（bot依赖LLM服务）两个维度，建议在测试环境中补充完整的依赖服务或Mock配置，并完善API文档中对前置条件的说明，以进一步提升测试通过率和系统的可测性。
+
+在附录中我们提供了有关我们的jmeter测试使用场景的表格以及全部的jmeter测试\ref{tab:jmeter_script_recommendation}
 
 \section{LightLog复现及其消融与对比实验}
 \subsection*{数据集构建}
@@ -346,7 +423,20 @@ Online Boutique 原始系统以 \texttt{frontend} 作为用户入口，浏览器
 
 
 \subsubsection{对比实验结果及分析}
-
+\begin{table}[htbp]
+	\centering
+	\caption{模型规模与测试效率对比}
+	\label{tab:model_comparison}
+	\begin{tabular}{lrrrr}
+		\toprule
+		\textbf{模型} & \textbf{参数量} & \textbf{模型大小 (KB)} & \textbf{测试时间 (分钟)} & \textbf{测试时间 (秒)} \\
+		\midrule
+		LightLog    & 8,050   & 82.99  & 0.0859 & 5.15  \\
+		LogAnomaly  & 251,298 & 986.36 & 0.3490 & 20.94 \\
+		LogRobust   & 585,991 & 2292.36 & 1.9984 & 119.90 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
 \section{智能体运维}
 通过这次实验记录自己在本次实验中所遇到的问题，以及心得感悟即相关问题和解决方法。如果遇到异常情况，或者无法完成任务时，也请分析错误产生的原因。
 
@@ -376,7 +466,6 @@ Jia Li, Shimin Di, Yanyan Shen, and Lei Chen.
 
 \end{thebibliography}
 \section{附录}
-\subsection*{新增微服务相关截图}
 \label{sec:appendix_microservice_figures}
 
 \begin{figure}[htbp]
@@ -482,13 +571,107 @@ Jia Li, Shimin Di, Yanyan Shen, and Lei Chen.
 	\label{fig:appendix_pytest}
 \end{figure}
 
-
 \begin{figure}[htbp]
 	\centering
 	\includegraphics[width=0.8\textwidth]{"./figure/LightLog/LogRobust/training_curves.png"}
 	\caption{LogRobust训练曲线}
 	\label{fig:LogRobustTrain}
 \end{figure}
+
+\begin{table}[htbp]
+	\centering
+	\caption{边界值分析及安全测试}
+	\label{tab:api_test_results}
+	\resizebox{\textwidth}{!}{%
+		\begin{tabular}{llrrrrrl}
+			\toprule
+			\textbf{测试用例} & \textbf{接口} & \textbf{样本数} & \textbf{错误数} & \textbf{错误率} & \textbf{平均响应时间} & \textbf{断言期望} & \textbf{测试类型} \\
+			\midrule
+			GET / - 正常 & GET / & 50 & 0 & 0\% & 74.56\,ms & 200 & 正常用例 \\
+			HEAD / - HEAD方法 & HEAD / & 50 & 0 & 0\% & 51.18\,ms & 200 & 方法测试 \\
+			GET / - 带SQL注入参数 & GET / & 50 & 50 & 100\% & 0\,ms & 500 & 安全测试 \\
+			TRACE / - 非法方法 & TRACE / & 50 & 50 & 100\% & 22.34\,ms & 405 & 方法测试 \\
+			GET /product/\{id\} - 有效ID1 & \texttt{GET /product/OLJCESPC7Z} & 50 & 0 & 0\% & 35.48\,ms & 200 & 正常用例 \\
+			GET /product/\{id\} - 有效ID2 & \texttt{GET /product/LS4PSXUNUM} & 50 & 0 & 0\% & 24.80\,ms & 200 & 正常用例 \\
+			GET /product/\{id\} - 不存在的ID & \texttt{GET /product/NONEXIST99} & 50 & 50 & 100\% & 24.82\,ms & 500 & 边界值 \\
+			GET /product/\{id\} - SQL注入ID & \texttt{GET /product/' OR '1'='1} & 50 & 50 & 100\% & 22.16\,ms & 500 & 安全测试 \\
+			GET /product/\{id\} - 超长ID & \texttt{GET /product/\{LONG\_STR\}} & 50 & 50 & 100\% & 3.50\,ms & 500 & 边界值 \\
+			GET /product/\{id\} - 负数ID & \texttt{GET /product/-1} & 50 & 50 & 100\% & 8.56\,ms & 500 & 边界值 \\
+			GET /product/\{id\} - XSS注入ID & \texttt{GET /product/}$<$\texttt{script}$>$\texttt{alert(1)}$<$/\texttt{script}$>$ & 50 & 50 & 100\% & 0\,ms & 500 & 安全测试 \\
+			GET /product-meta/\{ids\} - 有效ID & \texttt{GET /product-meta/OLJCESPC7Z} & 50 & 0 & 0\% & 49.02\,ms & 200 & 正常用例 \\
+			GET /product-meta/\{ids\} - SQL注入 & \texttt{GET /product-meta/' OR '1'='1} & 50 & 0 & 0\% & 27.36\,ms & 500 & 安全测试 \\
+			GET /product-meta/\{ids\} - 空ID & \texttt{GET /product-meta/} & 50 & 50 & 100\% & 46.80\,ms & 500 & 边界值 \\
+			GET /product-meta/\{ids\} - XSS注入 & \texttt{GET /product-meta/}$<$\texttt{script}$>$\texttt{alert(1)}$<$/\texttt{script}$>$ & 50 & 50 & 100\% & 0\,ms & 500 & 安全测试 \\
+			GET /cart - 正常 & GET /cart & 50 & 0 & 0\% & 56.52\,ms & 200 & 正常用例 \\
+			HEAD /cart - HEAD方法 & HEAD /cart & 50 & 0 & 0\% & 36.36\,ms & 200 & 方法测试 \\
+			POST /cart - 正常添加 & POST /cart & 50 & 0 & 0\% & 20.16\,ms & 200 & 正常用例 \\
+			POST /cart - 缺少product\_id & POST /cart & 50 & 50 & 100\% & 1.96\,ms & 400 & 参数校验 \\
+			POST /cart - 缺少quantity & POST /cart & 50 & 50 & 100\% & 1.84\,ms & 400 & 参数校验 \\
+			POST /cart - 空body & POST /cart & 50 & 50 & 100\% & 1.92\,ms & 400 & 参数校验 \\
+			POST /cart - SQL注入product\_id & POST /cart & 50 & 50 & 100\% & 2.70\,ms & 400 & 安全测试 \\
+			POST /cart - quantity负数 & POST /cart & 50 & 50 & 100\% & 1.84\,ms & 400 & 边界值 \\
+			POST /cart - quantity=0 & POST /cart & 50 & 50 & 100\% & 1.68\,ms & 400 & 边界值 \\
+			POST /cart - quantity超大值 & POST /cart & 50 & 50 & 100\% & 1.88\,ms & 400 & 边界值 \\
+			POST /cart - quantity非数字 & POST /cart & 50 & 50 & 100\% & 1.78\,ms & 400 & 边界值 \\
+			POST /cart/empty - 正常 & POST /cart/empty & 50 & 0 & 0\% & 50.74\,ms & 200 & 正常用例 \\
+			GET /cart/empty - 错误方法 & GET /cart/empty & 50 & 50 & 100\% & 27.44\,ms & 405 & 方法测试 \\
+			POST /cart/checkout - 完整正常 & POST /cart/checkout & 50 & 50 & 100\% & 16.62\,ms & 200 & 正常用例(功能失败) \\
+			POST /cart/checkout - 空body & POST /cart/checkout & 50 & 50 & 100\% & 2.04\,ms & 400 & 参数校验 \\
+			POST /cart/checkout - 无效email格式 & POST /cart/checkout & 50 & 50 & 100\% & 1.68\,ms & 400 & 数据校验 \\
+			POST /cart/checkout - XSS注入email & POST /cart/checkout & 50 & 50 & 100\% & 1.58\,ms & 400 & 安全测试 \\
+			POST /cart/checkout - zip\_code非数字 & POST /cart/checkout & 50 & 50 & 100\% & 1.86\,ms & 400 & 数据校验 \\
+			POST /cart/checkout - 缺少email & POST /cart/checkout & 50 & 50 & 100\% & 2.10\,ms & 400 & 参数校验 \\
+			POST /cart/checkout - 缺少信用卡号 & POST /cart/checkout & 50 & 50 & 100\% & 1.92\,ms & 400 & 参数校验 \\
+			POST /cart/checkout - 已过期信用卡 & POST /cart/checkout & 50 & 50 & 100\% & 1.78\,ms & 400 & 数据校验 \\
+			GET /\_healthz - 正常 & GET /\_healthz & 50 & 0 & 0\% & 69.32\,ms & 200 & 正常用例 \\
+			HEAD /\_healthz - HEAD方法 & HEAD /\_healthz & 50 & 0 & 0\% & 41.42\,ms & 200 & 方法测试 \\
+			POST /\_healthz - 错误方法 & POST /\_healthz & 50 & 0 & 0\% & 30.74\,ms & 405 & 方法测试 \\
+			GET /robots.txt - 正常 & GET /robots.txt & 50 & 0 & 0\% & 52.14\,ms & 200 & 正常用例 \\
+			GET /assistant - 正常 & GET /assistant & 50 & 0 & 0\% & 51.66\,ms & 200 & 正常用例 \\
+			GET /logout - 正常 & GET /logout & 50 & 0 & 0\% & 51.88\,ms & 200 & 正常用例 \\
+			POST /setCurrency - USD & POST /setCurrency & 50 & 0 & 0\% & 5.10\,ms & 200 & 正常用例 \\
+			POST /setCurrency - EUR & POST /setCurrency & 50 & 0 & 0\% & 2.02\,ms & 200 & 正常用例 \\
+			POST /setCurrency - JPY & POST /setCurrency & 50 & 0 & 0\% & 1.74\,ms & 200 & 正常用例 \\
+			POST /setCurrency - 无效货币RMB & POST /setCurrency & 50 & 50 & 100\% & 1.72\,ms & 400 & 数据校验 \\
+			POST /setCurrency - 缺少currency\_code & POST /setCurrency & 50 & 50 & 100\% & 2.10\,ms & 400 & 参数校验 \\
+			POST /setCurrency - SQL注入 & POST /setCurrency & 50 & 50 & 100\% & 2.72\,ms & 400 & 安全测试 \\
+			POST /setCurrency - XSS注入 & POST /setCurrency & 50 & 50 & 100\% & 1.72\,ms & 400 & 安全测试 \\
+			POST /bot - 正常JSON & POST /bot & 50 & 50 & 100\% & 2,494.80\,ms & 200 & 正常用例(超时) \\
+			POST /bot - 无效JSON & POST /bot & 50 & 50 & 100\% & 4,131.90\,ms & 400 & 数据校验 \\
+			POST /bot - 空body & POST /bot & 50 & 50 & 100\% & 4,032.72\,ms & 400 & 参数校验 \\
+			POST /bot - XSS JSON & POST /bot & 50 & 50 & 100\% & 4,106.78\,ms & 400 & 安全测试 \\
+			GET /static/ - 正常(根) & GET /static/ & 50 & 0 & 0\% & 66.06\,ms & 200 & 正常用例 \\
+			GET /static/ - 不存在的文件 & GET /static/nonexistent.css & 50 & 50 & 100\% & 28.68\,ms & 404 & 边界值 \\
+			GET /static/ - 路径穿越-0 & GET /static/../ & 50 & 0 & 0\% & 37.40\,ms & 404 & 安全测试 \\
+			GET /static/ - 路径穿越-1 & GET /static/../../ & 50 & 50 & 100\% & 46.72\,ms & 404 & 安全测试 \\
+			GET /static/ - 路径穿越 & GET /static/../../../etc/passwd & 50 & 50 & 100\% & 84.26\,ms & 404 & 安全测试 \\
+			\bottomrule
+		\end{tabular}%
+	}
+\end{table}
+
+\begin{table}[htbp]
+	\centering
+	\caption{JMeter 压测脚本选型推荐}
+	\label{tab:jmeter_script_recommendation}
+	\resizebox{\textwidth}{!}{%
+		\begin{tabular}{lll}
+			\toprule
+			\textbf{测试类型} & \textbf{推荐脚本} & \textbf{推荐理由} \\
+			\midrule
+			\textbf{HTTP 全链路功能验证} & jmeter-all-apis & 覆盖浏览、下单、辅助三大场景，含 Cookie 和缓存管理，适合功能正确性验证 \\
+			\textbf{HTTP 轻量级回归测试} & jmeter-online-boutique & 线程数适中(100)，含响应断言，适合 CI/CD 流水线中的回归测试 \\
+			\textbf{gRPC 后端服务验证} & jmeter-grpc-backend & 覆盖 CartService、ProductCatalogService、下单链路，适合后端服务上线前验证 \\
+			\textbf{gRPC 极限压力测试} & jmeter-grpc-extreme & 500线程并行，无思考时间，适合发现系统瓶颈和容量上限 \\
+			\textbf{HTTP 单接口极限测试} & jmeter-product-stress & 200线程专注商品接口，适合分析特定接口的性能极限 \\
+			\textbf{gRPC Checkout+Currency 依赖链} & jmeter-checkout-currency & 800线程，专注 Checkout→Currency 依赖链，适合验证服务间调用稳定性 \\
+			\textbf{gRPC 推荐/邮件服务极限} & jmeter-rec-email & 800线程，适合测试推荐和邮件服务的极限处理能力 \\
+			\textbf{边界值/安全测试} & test-http-all-easyerror & 58个边界测试用例，覆盖 SQL注入、XSS、路径穿越、非法参数等 \\
+			\textbf{长时间稳定性测试} & test-http-infinity & 无限循环模式，适合 7×24 稳定性测试（需手动停止,在本项目中用来收集日志） \\
+			\bottomrule
+		\end{tabular}%
+	}
+\end{table}
 \end{spacing}
 
 
