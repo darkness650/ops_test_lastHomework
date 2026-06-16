@@ -181,7 +181,69 @@ JMeter 分别完成系统功能自动化测试与性能压力测试，用采集�
 本报告各部分由相应分工部分同学完成
 
 \section{微服务系统介绍和开发}
-通过学习 ...,掌握 ...
+
+本部分工作基于 Google Cloud 的 Online Boutique 微服务示例系统进行扩展。原系统已经具备商品浏览、购物车、结算、推荐、广告、支付、邮件、配送等典型电商功能，能够体现多语言、多服务协同工作的微服务架构特点。但是，原项目的商品购买流程并没有真正维护库存状态：用户可以反复加入商品，系统不会判断剩余库存是否足够；清空购物车也不会恢复库存；管理员也没有独立的进货入口。因此，本次开发选择围绕“库存管理”和“进货管理”补充业务能力，在原有系统上新增两个微服务，并对前端服务进行集成改造。
+
+\subsection*{原系统结构}
+
+Online Boutique 原始系统以 \texttt{frontend} 作为用户入口，浏览器和压测程序都通过 HTTP 访问前端服务，再由前端服务调用内部微服务完成页面展示和业务处理。原系统中，\texttt{productcatalogservice} 负责商品数据，\texttt{cartservice} 负责购物车，\texttt{checkoutservice} 负责结算编排，\texttt{currencyservice}、\texttt{paymentservice}、\texttt{shippingservice}、\texttt{emailservice} 等服务分别承担货币换算、支付、配送和邮件通知等职责。整体结构如图 \ref{fig:origin_microservice_arch} 所示。
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\textwidth]{figure/microservice/architecture-diagram.png}
+	\caption{原始 Online Boutique 微服务架构}
+	\label{fig:origin_microservice_arch}
+\end{figure}
+
+从架构上看，原系统服务拆分清晰，但商品库存没有被建模为独立状态。商品目录服务只负责展示商品基本信息，购物车服务只保存用户选择的商品和数量，二者之间没有库存约束。因此，本次开发没有在页面上简单写死库存数字，而是新增独立库存服务，使库存成为可以查询、扣减、恢复和监控的业务状态。
+
+\subsection*{新增微服务设计}
+
+本次开发新增了两个微服务：\texttt{inventoryservice} 和 \texttt{restockservice}。\texttt{inventoryservice} 是库存服务，负责维护每个商品的剩余库存、库存状态和仓库位置，并提供查询、预留、释放等能力；\texttt{restockservice} 是进货服务，作为管理员补货操作的后端入口，负责校验服务间调用凭证，并调用库存服务完成库存增加。扩展后的架构如图 \ref{fig:new_microservice_arch} 所示。
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\textwidth]{figure/microservice/architecture-diagram-current.png}
+	\caption{新增 inventoryservice 与 restockservice 后的系统结构}
+	\label{fig:new_microservice_arch}
+\end{figure}
+
+扩展后系统形成了两条主要业务链路。第一条是普通用户购物链路：用户进入商品详情页时，\texttt{frontend} 调用 \texttt{inventoryservice} 查询当前库存，并在页面上展示剩余数量；用户加入购物车时，前端先请求库存服务预留库存，成功后再写入 \texttt{cartservice}；如果购物车写入失败，前端会调用库存服务释放刚才预留的库存，避免库存凭空减少；用户清空购物车时，系统也会把购物车中已有商品数量释放回库存。第二条是管理员进货链路：管理员访问独立的 \texttt{/admin/restock} 页面，登录成功后选择商品并输入进货数量，前端携带内部 API Token 调用 \texttt{restockservice}，再由进货服务调用库存服务增加库存。
+
+\subsection*{库存服务实现概述}
+
+\texttt{inventoryservice} 使用 Python 实现，核心职责是管理商品库存状态。服务启动时读取初始库存数据，并以商品 ID 为键保存库存数量、库存状态和仓库信息。库存状态根据剩余数量自动判断：库存为 0 时为缺货，库存较少时为低库存，其余情况为正常库存。这样前端不仅能显示“还剩多少件”，也能显示当前商品是否处于低库存或缺货状态。
+
+库存服务提供三类核心接口。第一类是库存查询接口，用于商品详情页和管理员页面读取库存；第二类是库存预留接口，用于用户加入购物车时扣减库存；第三类是库存释放接口，用于购物车写入失败、清空购物车和管理员进货等场景。库存服务内部对库存变更操作加锁，避免并发请求同时修改同一份库存数据导致数量错误。服务还提供健康检查和 metrics 指标，便于 Kubernetes 探针和后续监控系统判断服务状态。
+
+这种设计的关键点在于：库存判断被放在服务端，而不是只依赖前端页面限制。即使用户绕过页面直接构造请求，也必须经过库存服务校验，无法购买超过库存的数量。这样可以让库存约束成为系统后端的一部分，而不是单纯的页面展示逻辑。
+
+\subsection*{进货服务实现概述}
+
+\texttt{restockservice} 同样使用 Python 实现，它不直接保存库存，而是承担管理员进货入口的角色。这样拆分的原因是普通用户购买商品和管理员补充库存属于不同业务角色，如果把进货逻辑混在商品详情页或购物车逻辑中，会让用户流程和管理流程混杂在一起，也不利于后续权限控制、进货记录、供应商管理等功能扩展。
+
+进货流程采用两层保护。第一层是前端管理员登录，管理员需要使用账号密码进入 \texttt{/admin/restock} 页面；第二层是服务间 API Token，只有携带正确 Token 的前端请求才能调用进货服务。这样的设计区分了“浏览器访问权限”和“服务间调用权限”：前者保护管理员页面，后者保护进货接口本身。
+
+当管理员提交进货数量后，\texttt{frontend} 会向 \texttt{restockservice} 发送请求；进货服务校验 Token 和参数后，再调用 \texttt{inventoryservice} 更新库存。操作成功后，页面显示进货成功弹窗，管理员点击确认后刷新页面，从而看到更新后的库存数量。相关界面和操作效果截图放在附录 \ref{sec:appendix_microservice_figures} 中。
+
+\subsection*{前端集成改造}
+
+原 \texttt{frontend} 服务使用 Go 实现，是用户访问系统的统一入口。本次开发在前端中增加了库存查询、库存预留、库存释放和管理员进货页面的调用逻辑。普通用户打开商品详情页时，页面会展示该商品的剩余库存、库存状态和仓库位置；商品数量选择框会根据库存动态限制最大可选数量，避免页面上直接选择超过库存的数量。
+
+加入购物车时，前端不再直接写入购物车，而是先向库存服务申请预留库存。只有库存预留成功后，才继续调用购物车服务。如果购物车服务写入失败，前端会立即释放库存，完成一次简单的补偿操作。清空购物车时，前端先读取购物车内容，再调用购物车服务清空，最后把购物车中原有商品数量逐项释放回库存。通过这些改造，系统实现了“加入购物车扣减库存、清空购物车恢复库存、库存不足拒绝加入”的基本闭环。
+
+管理员页面则被设计为独立模块，而不是放在普通商品购买流程中。管理员访问 \texttt{/admin/restock} 后先看到登录页面，登录成功后进入进货页面。页面列出商品、当前库存和进货输入框，管理员提交后由前端调用进货服务。这样既保持了普通用户页面的简洁，也让管理操作有清晰的入口和权限边界。
+
+\subsection*{部署与测试}
+
+两个新增服务都补充了 Dockerfile、Kubernetes Deployment 和 Service 配置，并加入到 skaffold 构建流程中。\texttt{frontend} 通过环境变量读取库存服务和进货服务地址，例如 \texttt{INVENTORY\_SERVICE\_URL} 和 \texttt{RESTOCK\_SERVICE\_URL}。在 Kubernetes 中，服务之间不使用 \texttt{localhost} 通信，而是通过 Service 名称进行访问，例如 \texttt{inventoryservice} 和 \texttt{restockservice}。这样可以适应 Pod 动态创建和销毁的环境。
+
+测试方面，库存服务重点验证库存查询、库存预留、库存不足拒绝、库存释放和异常商品 ID 等场景；进货服务重点验证 Token 校验、参数校验、进货成功和依赖库存服务失败等场景。前端功能则通过手动操作验证：商品详情页能看到库存，加入购物车后库存减少，清空购物车后库存回滚，管理员登录后可以进货，进货成功后弹窗提示并刷新页面。测试截图和 Kubernetes 运行状态截图统一放在附录中。
+
+\subsection*{本部分小结}
+
+本部分在 Online Boutique 原有系统基础上新增了库存服务和进货服务，并完成了前端集成、容器化部署和功能测试。库存服务让商品库存从静态页面信息变成独立业务状态，支持查询、扣减、释放和监控；进货服务将管理员补货从普通购买流程中拆分出来，并通过管理员登录和 API Token 进行保护。经过改造后，系统形成了较完整的库存业务闭环：用户购买会占用库存，取消购物车会恢复库存，库存不足会拒绝请求，管理员可以在独立页面补充库存。该过程体现了微服务系统中服务拆分、接口协作、状态一致性、服务发现和可测试性的基本思想。
+
 
 \section{部署 故障注入与监控 数据采集分析}
 该实验所使用的环境、工具 ...
@@ -315,6 +377,112 @@ Jia Li, Shimin Di, Yanyan Shen, and Lei Chen.
 
 \end{thebibliography}
 \section{附录}
+\subsection*{新增微服务相关截图}
+\label{sec:appendix_microservice_figures}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.85\textwidth]{figure/microservice/service_metrics.png}
+	\caption{inventoryservice 监控指标截图}
+	\label{fig:appendix_service_metrics}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.85\textwidth]{figure/microservice/watch.png}
+	\caption{商品详情页库存展示截图}
+	\label{fig:appendix_inventory_watch}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\begin{minipage}{0.45\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{figure/microservice/beforeenter.png}
+		加入购物车前
+	\end{minipage}
+	\hfill
+	\begin{minipage}{0.45\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{figure/microservice/buyit.png}
+		选择购买数量
+	\end{minipage}
+	\caption{库存扣减前的商品状态}
+	\label{fig:appendix_inventory_before}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\begin{minipage}{0.45\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{figure/microservice/afterjoinit.png}
+		加入购物车后库存减少
+	\end{minipage}
+	\hfill
+	\begin{minipage}{0.45\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{figure/microservice/emptyit.png}
+		清空购物车
+	\end{minipage}
+	\caption{加入购物车与清空购物车操作过程}
+	\label{fig:appendix_inventory_cart}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.85\textwidth]{figure/microservice/afteremptyit.png}
+	\caption{清空购物车后库存回滚截图}
+	\label{fig:appendix_inventory_after_empty}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\begin{minipage}{0.45\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{figure/microservice/inventoryadmin.png}
+		管理员进货页面
+	\end{minipage}
+	\hfill
+	\begin{minipage}{0.45\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{figure/microservice/inventory10.png}
+		输入进货数量
+	\end{minipage}
+	\caption{管理员进货操作页面}
+	\label{fig:appendix_restock_page}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\begin{minipage}{0.45\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{figure/microservice/respondins.png}
+		进货成功弹窗
+	\end{minipage}
+	\hfill
+	\begin{minipage}{0.45\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{figure/microservice/avali17.png}
+		进货后库存增加
+	\end{minipage}
+	\caption{管理员进货成功与页面刷新结果}
+	\label{fig:appendix_restock_success}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.85\textwidth]{figure/microservice/getpodsit.png}
+	\caption{Kubernetes Pod 运行状态截图}
+	\label{fig:appendix_k8s_pods}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.85\textwidth]{figure/microservice/testitest.png}
+	\caption{库存服务和进货服务单元测试通过截图}
+	\label{fig:appendix_pytest}
+\end{figure}
+
 
 \begin{figure}[htbp]
 	\centering
