@@ -5,6 +5,7 @@
 %\usepackage{xeCJK}
 \usepackage{times}
 \usepackage{graphicx,float}
+\usepackage{subcaption}
 \usepackage{setspace}
 \usepackage{fancyhdr}
 % \usepackage{graphicx}
@@ -191,13 +192,55 @@ JMeter 分别完成系统功能自动化测试与性能压力测试，用采集�
 \section{项目测试}
 \subsection*{Selenium IDE测试}
 
+我们使用Selenium IDE进行系统功能自动化测试，通过录制前端操作打通微服务从浏览商品，到选购，到广告，到下单的全流程，实现了系统功能的自动化测试，全程测试约10s，下附一张测试通过的图片\ref{fig:selenium}，相关的测试脚本文件可以在我们仓库的test文件夹下的selenium文件夹下找到
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{./figure/test/selenium.png}
+	\caption{selenium ide自动化测试}
+	\label{fig:selenium}
+\end{figure}
 \subsection*{Jmeter自动化测试}
+
+
+
 
 \section{LightLog复现及其消融与对比实验}
 \subsection*{数据集构建}
+\subsubsection{日志采集}
 
+为了构造我们自己的log数据集，我们使用了fluent来进行日志的采集工作，通过修改fluent-configmap文件完成将采集的日志存储到本地文件中的任务，但fluent是以pod的形式存在于k8s集群中的，所以我们需要在minikube启动的时候进行数据卷挂载，将fluent记录日志的目录挂载到宿主机中。至此我们解决了日志收集的存储问题
 
+我们通过jmeter持续对微服务发起请求，在进行上述jmeter自动化测试的时候我们便已收集了许多日志，但这仍然不足以构建出一个数据集，于是我们编写一个持续性请求的测试脚本不断进行请求，并结合下一节的内容构建数据集
 
+\subsubsection{chaosmesh故障注入}
+
+使用jmeter自动化请求可以收集到大量的正常日志，但异常日志并不那么容易产生，为了人为制造异常日志，我们使用chaosmesh故障注入，实验时间设为一小时。我们设计了如表\ref{tab:chaos-core}中所示的三种chaosmesh故障，使用单个注入或者组合注入的方式进行注入并采集到符合要求的异常日志
+
+这里使用网络混沌实验来模拟真实场景中大部分的网络波动场景，这些混沌实验可以作用于grpc协议包，使其不仅可以模拟用户与服务器之间的网络波动，还能模拟微服务之间互相请求的波动。我们调高了混沌实验的相关性参数，使得异常发生得“有迹可循”，尽量模拟真实场景的日志情况，也为后续复现各种处理序列型数据的模型结构提供了方便。
+
+\begin{table}[htbp]
+	\centering
+	\caption{Chaos Mesh 网络混沌实验核心参数对比}
+	\label{tab:chaos-core}
+	\begin{tabular}{|l|l|l|l|}
+		\hline
+		\textbf{参数} & \textbf{test-lost} & \textbf{test-corrupt} & \textbf{test-delay} \\ \hline
+		动作 (action) & loss & corrupt & delay \\ \hline
+		持续时间 & 1h & 1h & 1h \\ \hline
+		方向 & to & to & to \\ \hline
+		主要参数 & loss=30\% & corrupt=25\% & latency=2s \\ \hline
+		抖动 (jitter) & - & - & 3s \\ \hline
+		相关性 (correlation) & 90\% & 90\% & 90\% \\ \hline
+		目标 Pod 数量 & 10 & 10 & 10 \\ \hline
+	\end{tabular}
+\end{table}
+
+\subsection*{构建数据集}
+
+我们编写脚本，通过识别日志中的关键词（如error，fail等），网络状态码（如400，500等），响应时间（过长的响应时间等异常情况）等异常因素综合判定日志是否为异常日志进行数据标注。有关数据集处理的代码可以在我们仓库的lightlog目录下的dataset目录下找到。
+
+我们借鉴LightLog中\cite{wang2022lightlog}的有关数据集处理，由于我们收集的日志没有记录块id，所以我们使用了BGL数据集的滑动窗口机制构建自己的数据集，鉴于我们的数据集是个人电脑收集的，数量并不如超级计算机直接生成的一般大。所以使用了相比论文中提到的BGL数据集300条日志为一条序列更短的序列长度：20。使用8000条正常序列与8000条异常序列构造出训练数据集，将剩余采集到的正常序列与相当其2.9\%的异常序列混合作测试数据集。训练集中正常序列与异常序列1：1的比例是为了让模型在训练的时候可以充分提取正常序列和异常序列的特征，而测试集中的比例是为了保证在模型测试的时候可以得到对标真实情况的测试，使其可以应用于真实场景。我们使用了论文中提到的hdfs数据集中正常与异常数据的比例，最终构建了约23w条序列作为测试集。
 
 \subsection*{LightLog复现}
 
@@ -205,9 +248,41 @@ JMeter 分别完成系统功能自动化测试与性能压力测试，用采集�
 
 \subsection*{LogAnomaly与LogRobust的复现及对比实验}
 
-\subsubsection{LogAnomaly原理}
+\subsubsection{LogAnomaly复现}
 
-\subsubsection{LogRobust原理}
+\subsubsection{LogRobust复现}
+
+我们阅读了LogRobust\cite{zhang2019robust}并对其进行了复现，下面介绍LogRobust论文中提到的模型原理
+
+\begin{figure}[htbp]
+	\centering
+	\begin{subfigure}{0.45\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{./figure/LightLog/LogRobust/data_process_robust.png}
+		\caption{数据预处理}
+		\label{fig:dataprocess}
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}{0.45\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{./figure/LightLog/LogRobust/model_robust.png}
+		\caption{模型架构}
+		\label{fig:model}
+	\end{subfigure}
+	\caption{LogRobust方法}
+	\label{fig:LogRobust}
+\end{figure}
+
+图\ref{fig:LogRobust}中展示了LogRobust使用的方法，图片来自于LogRobust论文\cite{zhang2019robust}。
+
+如图\ref{fig:dataprocess}所示，LogRobust先对日志序列进行预处理，Log Seq（日志序列）会被转化为Log Event（结构化日志事件），在这之后结构化日志事件会被预训练的300维fasttext向量编码为语义向量，送入模型中。
+
+如图\ref{fig:model},语义向量将被送入如图的模型架构中，日志事件会按时序送入一个双向LSTM网络架构中，双向的LSTM可以保证该架构具有日志序列的全局信息，为下面的注意力机制提供更全面的信息。
+
+网络使用加性注意力，对每个时间步进行注意力输出，该注意力层在双层LSTM后。该层会给每个日志事件进行打分，评判出日志事件的重要性。再之后经过一个全连接层与softmax层输出两个值，正常概率和异常概率，用此综合评判一条日志序列是否异常。
+
+在附录中我们提供了LogRobust的训练曲线作为参考\ref{fig:LogRobustTrain}。有关LogRobust复现的代码存放在项目仓库中LightLog下的LogRobust文件夹下
+
 
 \subsubsection{对比实验结果及分析}
 
@@ -240,6 +315,13 @@ Jia Li, Shimin Di, Yanyan Shen, and Lei Chen.
 
 \end{thebibliography}
 \section{附录}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{"./figure/LightLog/LogRobust/training_curves.png"}
+	\caption{LogRobust训练曲线}
+	\label{fig:LogRobustTrain}
+\end{figure}
 \end{spacing}
 
 
