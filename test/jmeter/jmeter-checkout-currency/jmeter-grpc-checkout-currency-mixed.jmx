@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="CheckoutService + CurrencyService gRPC 混合压测">
+      <stringProp name="TestPlan.comments">400线程压测checkoutservice和currencyservice，混合执行两轮</stringProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="用户自定义变量" enabled="true">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="TARGET_HOST" elementType="Argument">
+            <stringProp name="Argument.name">TARGET_HOST</stringProp>
+            <stringProp name="Argument.value">localhost</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PROTO_ROOT" elementType="Argument">
+            <stringProp name="Argument.name">PROTO_ROOT</stringProp>
+            <stringProp name="Argument.value">d:/code/github/Online-Boutique/protos</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_1" elementType="Argument">
+            <stringProp name="Argument.name">PID_1</stringProp>
+            <stringProp name="Argument.value">OLJCESPC7Z</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_2" elementType="Argument">
+            <stringProp name="Argument.name">PID_2</stringProp>
+            <stringProp name="Argument.value">LS4PSXUNUM</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_3" elementType="Argument">
+            <stringProp name="Argument.name">PID_3</stringProp>
+            <stringProp name="Argument.value">9SIQT6ULQW</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_4" elementType="Argument">
+            <stringProp name="Argument.name">PID_4</stringProp>
+            <stringProp name="Argument.value">0PUK6V6EV0</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_5" elementType="Argument">
+            <stringProp name="Argument.name">PID_5</stringProp>
+            <stringProp name="Argument.value">1YMWWN1N4O</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_6" elementType="Argument">
+            <stringProp name="Argument.name">PID_6</stringProp>
+            <stringProp name="Argument.value">2ZYFJ3GM2N</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_7" elementType="Argument">
+            <stringProp name="Argument.name">PID_7</stringProp>
+            <stringProp name="Argument.value">66VCHSJNUP</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_8" elementType="Argument">
+            <stringProp name="Argument.name">PID_8</stringProp>
+            <stringProp name="Argument.value">6E92ZMYYFZ</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_9" elementType="Argument">
+            <stringProp name="Argument.name">PID_9</stringProp>
+            <stringProp name="Argument.value">9QT0DCM7VX</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PID_10" elementType="Argument">
+            <stringProp name="Argument.name">PID_10</stringProp>
+            <stringProp name="Argument.value">L9ECAV7KIM</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+        </collectionProp>
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+
+      <!-- 场景1: CheckoutService 400线程 - PlaceOrder 会内部调用 CurrencyService -->
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="CheckoutService-400线程-PlaceOrder" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器" enabled="true">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <stringProp name="LoopController.loops">2</stringProp>
+        </elementProp>
+        <longProp name="ThreadGroup.start_time">1680000000000</longProp>
+        <longProp name="ThreadGroup.end_time">1680000000000</longProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
+        <intProp name="ThreadGroup.num_threads">400</intProp>
+        <intProp name="ThreadGroup.ramp_time">10</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+      </ThreadGroup>
+      <hashTree>
+        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="CheckoutService/PlaceOrder 下单（内部调用CurrencyService）" enabled="true">
+          <stringProp name="GRPCSampler.host">${TARGET_HOST}</stringProp>
+          <stringProp name="GRPCSampler.port">5050</stringProp>
+          <stringProp name="GRPCSampler.protoFolder">${PROTO_ROOT}</stringProp>
+          <stringProp name="GRPCSampler.libFolder"></stringProp>
+          <stringProp name="GRPCSampler.fullMethod">hipstershop.CheckoutService/PlaceOrder</stringProp>
+          <stringProp name="GRPCSampler.requestJson">{"user_id":"${__UUID}","user_currency":"USD","address":{"street_address":"1600 Amphitheatre Parkway","city":"Mountain View","state":"CA","zip_code":"94043","country":"United States"},"email":"test@example.com","credit_card":{"credit_card_number":"4432-8015-6152-0454","credit_card_expiration_month":12,"credit_card_expiration_year":2027,"credit_card_cvv":672}}</stringProp>
+          <stringProp name="GRPCSampler.deadline">10000</stringProp>
+          <boolProp name="GRPCSampler.tls">false</boolProp>
+          <boolProp name="GRPCSampler.tlsDisableVerification">false</boolProp>
+          <stringProp name="GRPCSampler.metadata"></stringProp>
+          <stringProp name="GRPCSampler.channelAwaitTermination">10000</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
+        </vn.zalopay.benchmark.GRPCSampler>
+        <hashTree/>
+      </hashTree>
+
+      <!-- 场景2: CurrencyService 400线程 - 直接调用 Convert 接口 -->
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="CurrencyService-400线程-Convert" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器" enabled="true">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <stringProp name="LoopController.loops">2</stringProp>
+        </elementProp>
+        <longProp name="ThreadGroup.start_time">1680000000000</longProp>
+        <longProp name="ThreadGroup.end_time">1680000000000</longProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
+        <intProp name="ThreadGroup.num_threads">400</intProp>
+        <intProp name="ThreadGroup.ramp_time">10</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+      </ThreadGroup>
+      <hashTree>
+        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="CurrencyService/Convert 货币转换（独立接口）" enabled="true">
+          <stringProp name="GRPCSampler.host">${TARGET_HOST}</stringProp>
+          <stringProp name="GRPCSampler.port">7000</stringProp>
+          <stringProp name="GRPCSampler.protoFolder">${PROTO_ROOT}</stringProp>
+          <stringProp name="GRPCSampler.libFolder"></stringProp>
+          <stringProp name="GRPCSampler.fullMethod">hipstershop.CurrencyService/Convert</stringProp>
+          <stringProp name="GRPCSampler.requestJson">{"from":{"currency_code":"USD","units":"${__Random(1,100)}","nanos":0},"to_code":"EUR"}</stringProp>
+          <stringProp name="GRPCSampler.deadline">5000</stringProp>
+          <boolProp name="GRPCSampler.tls">false</boolProp>
+          <boolProp name="GRPCSampler.tlsDisableVerification">false</boolProp>
+          <stringProp name="GRPCSampler.metadata"></stringProp>
+          <stringProp name="GRPCSampler.channelAwaitTermination">5000</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
+          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
+        </vn.zalopay.benchmark.GRPCSampler>
+        <hashTree/>
+      </hashTree>
+
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

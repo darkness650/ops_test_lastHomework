@@ -1,0 +1,50 @@
+{
+  "CurrencyService/Convert 货币转换（独立接口）" : {
+    "transaction" : "CurrencyService/Convert 货币转换（独立接口）",
+    "sampleCount" : 800,
+    "errorCount" : 0,
+    "errorPct" : 0.0,
+    "meanResTime" : 56.177499999999995,
+    "medianResTime" : 53.0,
+    "minResTime" : 5.0,
+    "maxResTime" : 476.0,
+    "pct1ResTime" : 75.0,
+    "pct2ResTime" : 83.0,
+    "pct3ResTime" : 90.0,
+    "throughput" : 2.705078785419625,
+    "receivedKBytesPerSec" : 0.17651035326638262,
+    "sentKBytesPerSec" : 0.0
+  },
+  "Total" : {
+    "transaction" : "Total",
+    "sampleCount" : 1600,
+    "errorCount" : 0,
+    "errorPct" : 0.0,
+    "meanResTime" : 63.255,
+    "medianResTime" : 54.0,
+    "minResTime" : 5.0,
+    "maxResTime" : 2430.0,
+    "pct1ResTime" : 75.0,
+    "pct2ResTime" : 83.0,
+    "pct3ResTime" : 98.98000000000002,
+    "throughput" : 5.41015757083925,
+    "receivedKBytesPerSec" : 1.346773929380537,
+    "sentKBytesPerSec" : 0.0
+  },
+  "CheckoutService/PlaceOrder 下单（内部调用CurrencyService）" : {
+    "transaction" : "CheckoutService/PlaceOrder 下单（内部调用CurrencyService）",
+    "sampleCount" : 800,
+    "errorCount" : 0,
+    "errorPct" : 0.0,
+    "meanResTime" : 70.3325,
+    "medianResTime" : 55.0,
+    "minResTime" : 42.0,
+    "maxResTime" : 2430.0,
+    "pct1ResTime" : 74.0,
+    "pct2ResTime" : 83.0,
+    "pct3ResTime" : 285.3400000000015,
+    "throughput" : 2.712011498928755,
+    "receivedKBytesPerSec" : 1.1732627871342176,
+    "sentKBytesPerSec" : 0.0
+  }
+}
