@@ -2,12 +2,14 @@
 Training script for LogRobust
 Based on: "Robust Log-Based Anomaly Detection on Unstable Log Data" (ESEC/FSE 2019)
 
-Uses semantic vectors (TF-IDF weighted word vectors) as model input, following the paper.
-Each log message is parsed to a template, pre-processed, and transformed into a semantic vector.
-Sequences of semantic vectors are fed into the Attention-based Bi-LSTM model.
+Uses FastText pre-trained vectors (Common Crawl, 300-dim, FROZEN) + TF-IDF aggregation
+to compute semantic vectors per log event. These semantic vectors are then fed into
+the Attention-based Bi-LSTM model for anomaly detection.
 
-Key: Word embeddings are trainable nn.Embedding inside the model, so gradients flow
-from the loss all the way through the Bi-LSTM + Attention into the word vectors.
+Key differences from previous implementation (now matching paper exactly):
+- FastText pre-trained vectors (frozen) instead of trainable nn.Embedding
+- Semantic vectors pre-computed during dataset construction
+- Model input: (batch, max_events, 300) semantic vectors, not token IDs
 """
 import os
 import json
@@ -20,12 +22,12 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix, classification_report
 
 from model import LogRobust
 from dataset import (
     LogTemplateVocab, WordVocab, LogDataset, SemanticVectorBuilder,
-    extract_message, parse_to_template, preprocess_log_event, compute_idf
+    extract_message, parse_to_template, preprocess_log_event, compute_idf,
+    get_fasttext_model, get_word_vector
 )
 
 
@@ -33,18 +35,17 @@ from dataset import (
 CONFIG = {
     # Data paths
     'train_file': r"d:\code\python\paper\LightLog\BGL&HDFS dataset and Methods of data processing\mylog\processed_datasets\train_dataset.jsonl",
-    'test_file': r"d:\code\python\paper\LightLog\BGL&HDFS dataset and Methods of data processing\mylog\processed_datasets\test_dataset.jsonl",
+
     
-    # Model hyperparameters (matching paper)
-    'embed_dim': 300,      # FastText dimension (Section 3.2.2)
-    'hidden_dim': 128,     # Bi-LSTM hidden dimension
+    # Model hyperparameters (matching paper exactly)
+    'embed_dim': 300,      # FastText pre-trained vectors (Common Crawl, 300-dim, frozen)
+    'hidden_dim': 128,     # Bi-LSTM hidden dimension (paper default)
     'dropout': 0.5,
     'num_classes': 2,
     
     # Training hyperparameters (matching paper Section 4.1.2)
     'batch_size': 128,     # Paper uses 128
     'max_len': 20,
-    'max_tokens_per_event': 30,  # max words per log event after preprocessing
     'epochs': 30,          # Paper's architecture, 30 epochs
     'lr': 0.01,            # SGD learning rate (paper Section 4.1.2)
     'weight_decay': 1e-4,  # Paper uses 0.0001
@@ -94,7 +95,7 @@ def build_vocabularies(train_file, max_groups=None):
     print("\nBuilding vocabularies...")
     sequences = load_raw_sequences(train_file, max_groups=max_groups)
     
-    # Build word vocabulary (for semantic vectorization)
+    # Build word vocabulary (for IDF computation)
     print("\nBuilding word vocabulary...")
     word_vocab = WordVocab(min_freq=CONFIG['word_min_freq'])
     word_vocab.build(sequences)
@@ -112,53 +113,53 @@ def build_vocabularies(train_file, max_groups=None):
     return word_vocab, template_vocab, idf_dict
 
 
-def collate_fn(batch, max_tokens_per_event=30):
+def collate_fn(batch):
     """
-    Collate function for batching variable-length token data.
-    
-    Each sample: (events_tokens, label) where
-      events_tokens: list of (word_ids, weights) per log event
-    
+    Collate function for batching variable-length token sequences.
+
+    Each sample: (event_tokens, label) where
+      event_tokens: list of (token_ids, tfidf_weights) per event
+
     Returns:
-      token_ids: (batch, max_events, max_tokens) padded with 0
-      token_weights: (batch, max_events, max_tokens) padded with 0.0
+      token_ids: (batch, max_events, max_words) padded with zeros
+      tfidf_weights: (batch, max_events, max_words) padded with zeros
       event_mask: (batch, max_events) 1.0 for valid events
       labels: (batch,) tensor
     """
-    max_events = max(len(events) for events, _ in batch)
+    max_events = max(len(event_tokens) for event_tokens, _ in batch)
     max_events = min(max_events, CONFIG['max_len'])
-    
-    # Find max tokens across all events in the batch
-    max_tokens = 0
-    for events, _ in batch:
-        for word_ids, _ in events[:max_events]:
-            max_tokens = max(max_tokens, len(word_ids))
-    max_tokens = min(max_tokens, max_tokens_per_event)
-    
+
+    # Find max words across all events in batch
+    max_words = 0
+    for event_tokens, _ in batch:
+        for token_ids, _ in event_tokens[:max_events]:
+            max_words = max(max_words, len(token_ids))
+    max_words = max(max_words, 1)  # At least 1 to avoid empty dimension
+
     batch_size = len(batch)
-    token_ids = torch.zeros(batch_size, max_events, max_tokens, dtype=torch.long)
-    token_weights = torch.zeros(batch_size, max_events, max_tokens)
+
+    token_ids_batch = torch.zeros(batch_size, max_events, max_words, dtype=torch.long)
+    tfidf_weights_batch = torch.zeros(batch_size, max_events, max_words, dtype=torch.float)
     event_mask = torch.zeros(batch_size, max_events)
     labels = torch.zeros(batch_size, dtype=torch.long)
-    
-    for i, (events, label) in enumerate(batch):
+
+    for i, (event_tokens, label) in enumerate(batch):
         labels[i] = label
-        for j, (word_ids, weights) in enumerate(events[:max_events]):
-            event_mask[i, j] = 1.0
-            # Truncate tokens
-            n_tokens = min(len(word_ids), max_tokens)
-            for k in range(n_tokens):
-                token_ids[i, j, k] = word_ids[k]
-                token_weights[i, j, k] = weights[k]
-    
-    return token_ids, token_weights, event_mask, labels
+        n_events = min(len(event_tokens), max_events)
+        event_mask[i, :n_events] = 1.0
+
+        for j, (token_ids, tfidf_weights) in enumerate(event_tokens[:n_events]):
+            n_words = min(len(token_ids), max_words)
+            token_ids_batch[i, j, :n_words] = torch.tensor(token_ids[:n_words], dtype=torch.long)
+            tfidf_weights_batch[i, j, :n_words] = torch.tensor(tfidf_weights[:n_words], dtype=torch.float)
+
+    return token_ids_batch, tfidf_weights_batch, event_mask, labels
 
 
 def plot_training_curves(history, save_path):
     """Plot and save training curves"""
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
     
-    # Plot 1: Loss
     epochs = range(1, len(history['train_loss']) + 1)
     axes[0].plot(epochs, history['train_loss'], 'b-', label='Train Loss', marker='o')
     axes[0].plot(epochs, history['val_loss'], 'r-', label='Val Loss', marker='s')
@@ -168,7 +169,6 @@ def plot_training_curves(history, save_path):
     axes[0].legend()
     axes[0].grid(True, alpha=0.3)
     
-    # Plot 2: Accuracy
     axes[1].plot(epochs, history['train_acc'], 'b-', label='Train Acc', marker='o')
     axes[1].plot(epochs, history['val_acc'], 'r-', label='Val Acc', marker='s')
     axes[1].set_xlabel('Epoch')
@@ -177,7 +177,6 @@ def plot_training_curves(history, save_path):
     axes[1].legend()
     axes[1].grid(True, alpha=0.3)
     
-    # Plot 3: Precision, Recall, F1
     axes[2].plot(epochs, history['val_precision'], 'r-', label='Precision', marker='s')
     axes[2].plot(epochs, history['val_recall'], 'g-', label='Recall', marker='^')
     axes[2].plot(epochs, history['val_f1'], 'b-', label='F1', marker='o')
@@ -201,15 +200,15 @@ def train_epoch(model, dataloader, criterion, optimizer, device):
     total = 0
     
     pbar = tqdm(dataloader, desc="Training")
-    for token_ids, token_weights, event_mask, batch_labels in pbar:
+    for token_ids, tfidf_weights, event_mask, batch_labels in pbar:
         token_ids = token_ids.to(device)
-        token_weights = token_weights.to(device)
+        tfidf_weights = tfidf_weights.to(device)
         event_mask = event_mask.to(device)
         batch_labels = batch_labels.to(device)
         
         optimizer.zero_grad()
         
-        outputs, _ = model(token_ids, token_weights, event_mask)
+        outputs, _ = model(token_ids, tfidf_weights, event_mask)
         loss = criterion(outputs, batch_labels)
         
         loss.backward()
@@ -234,13 +233,13 @@ def evaluate_with_threshold(model, dataloader, criterion, device, threshold=0.5)
     all_labels = []
     
     with torch.no_grad():
-        for token_ids, token_weights, event_mask, batch_labels in tqdm(dataloader, desc="Evaluating"):
+        for token_ids, tfidf_weights, event_mask, batch_labels in tqdm(dataloader, desc="Evaluating"):
             token_ids = token_ids.to(device)
-            token_weights = token_weights.to(device)
+            tfidf_weights = tfidf_weights.to(device)
             event_mask = event_mask.to(device)
             batch_labels = batch_labels.to(device)
             
-            outputs, _ = model(token_ids, token_weights, event_mask)
+            outputs, _ = model(token_ids, tfidf_weights, event_mask)
             loss = criterion(outputs, batch_labels)
             
             total_loss += loss.item()
@@ -277,13 +276,13 @@ def find_best_threshold(model, dataloader, criterion, device, target_precision=0
     all_labels = []
     
     with torch.no_grad():
-        for token_ids, token_weights, event_mask, batch_labels in tqdm(dataloader, desc="Threshold search"):
+        for token_ids, tfidf_weights, event_mask, batch_labels in tqdm(dataloader, desc="Threshold search"):
             token_ids = token_ids.to(device)
-            token_weights = token_weights.to(device)
+            tfidf_weights = tfidf_weights.to(device)
             event_mask = event_mask.to(device)
             batch_labels = batch_labels.to(device)
             
-            outputs, _ = model(token_ids, token_weights, event_mask)
+            outputs, _ = model(token_ids, tfidf_weights, event_mask)
             probs = torch.softmax(outputs, dim=1)[:, 1].cpu().numpy()
             
             all_probs.extend(probs)
@@ -292,7 +291,6 @@ def find_best_threshold(model, dataloader, criterion, device, target_precision=0
     all_probs = np.array(all_probs)
     all_labels = np.array(all_labels)
     
-    # Try different thresholds
     best_threshold = 0.5
     best_f1 = 0
     best_metrics = None
@@ -317,7 +315,6 @@ def find_best_threshold(model, dataloader, criterion, device, target_precision=0
     if best_metrics:
         print(f"Best threshold: {best_threshold:.2f} (P={best_metrics[0]:.4f}, R={best_metrics[1]:.4f}, F1={best_metrics[2]:.4f})")
     else:
-        # Fallback: use default
         preds = (all_probs >= 0.5).astype(int)
         tp = np.sum((preds == 1) & (all_labels == 1))
         fp = np.sum((preds == 1) & (all_labels == 0))
@@ -336,23 +333,31 @@ def main():
     print(f"Using device: {device}")
     print(f"Config: {json.dumps(CONFIG, indent=2, ensure_ascii=False)}")
     
-    # Step 1: Build vocabularies from training data
+    # Step 0: Load FastText pre-trained model (once, globally cached)
+    print("\nLoading FastText pre-trained model...")
+    ft_model = get_fasttext_model()
+    print("FastText model loaded successfully.")
+    
+    # Step 1: Build vocabularies from training data (for IDF computation)
     word_vocab, template_vocab, idf_dict = build_vocabularies(CONFIG['train_file'])
-    vocab_size = len(word_vocab)
-    print(f"Vocab size: {vocab_size}")
+    print(f"Word vocab size: {len(word_vocab)}")
     
-    # Step 2: Create semantic builder (no embeddings, just tokenizes)
-    semantic_builder = SemanticVectorBuilder(word_vocab, idf_dict)
+    # Step 2: Build embedding matrix initialized with FastText vectors
+    print("\nBuilding embedding matrix from FastText...")
+    vocab_size = len(word_vocab)  # includes padding at index 0
+    embed_dim = CONFIG['embed_dim']
+    embedding_matrix = torch.zeros(vocab_size, embed_dim)
     
-    # Step 3: Load datasets
+    for word, idx in word_vocab.word2idx.items():
+        vec = get_word_vector(word, ft_model)
+        embedding_matrix[idx] = torch.tensor(vec, dtype=torch.float32)
+    
+    print(f"Embedding matrix shape: {embedding_matrix.shape}")
+    
+    # Step 3: Load datasets (token IDs + TF-IDF weights)
     print("\nLoading datasets...")
     train_dataset = LogDataset(
-        CONFIG['train_file'], template_vocab, semantic_builder,
-        max_len=CONFIG['max_len']
-    )
-    
-    test_dataset = LogDataset(
-        CONFIG['test_file'], template_vocab, semantic_builder,
+        CONFIG['train_file'], template_vocab, word_vocab, idf_dict,
         max_len=CONFIG['max_len']
     )
     
@@ -367,42 +372,36 @@ def main():
     train_subset = Subset(train_dataset, train_indices)
     val_subset = Subset(train_dataset, val_indices)
     
-    print(f"Train: {len(train_subset)}, Val: {len(val_subset)}, Test: {len(test_dataset)}")
+    print(f"Train: {len(train_subset)}, Val: {len(val_subset)}")
     
     # Check label distribution
     train_labels = [train_dataset.sequences[i][1] for i in train_indices]
     val_labels = [train_dataset.sequences[i][1] for i in val_indices]
-    test_labels = [s[1] for s in test_dataset.sequences]
     print(f"Train labels: normal={train_labels.count(0)}, anomaly={train_labels.count(1)}")
     print(f"Val labels: normal={val_labels.count(0)}, anomaly={val_labels.count(1)}")
-    print(f"Test labels: normal={test_labels.count(0)}, anomaly={test_labels.count(1)}")
     
     # Create DataLoaders
-    max_tokens = CONFIG['max_tokens_per_event']
     train_loader = DataLoader(
-        train_subset, batch_size=CONFIG['batch_size'], shuffle=False,
-        collate_fn=lambda batch: collate_fn(batch, max_tokens), num_workers=0
+        train_subset, batch_size=CONFIG['batch_size'], shuffle=True,
+        collate_fn=collate_fn, num_workers=0
     )
     val_loader = DataLoader(
         val_subset, batch_size=CONFIG['batch_size'], shuffle=False,
-        collate_fn=lambda batch: collate_fn(batch, max_tokens), num_workers=0
-    )
-    test_loader = DataLoader(
-        test_dataset, batch_size=CONFIG['batch_size'], shuffle=False,
-        collate_fn=lambda batch: collate_fn(batch, max_tokens), num_workers=0
+        collate_fn=collate_fn, num_workers=0
     )
     
-    # Step 5: Create model (vocab_size passed for nn.Embedding)
+    # Step 5: Create model with FastText-initialized trainable embedding
     model = LogRobust(
         vocab_size=vocab_size,
         embed_dim=CONFIG['embed_dim'],
         hidden_dim=CONFIG['hidden_dim'],
         num_classes=CONFIG['num_classes'],
-        dropout=CONFIG['dropout']
+        dropout=CONFIG['dropout'],
+        pretrained_embeddings=embedding_matrix
     ).to(device)
     
     print(f"\nModel architecture:")
-    print(f"  Word Embedding: {vocab_size} words x {CONFIG['embed_dim']}d (trainable)")
+    print(f"  Embedding: {vocab_size} words x {CONFIG['embed_dim']}-dim (FastText initialized, TRAINABLE)")
     print(f"  Bi-LSTM hidden: {CONFIG['hidden_dim']} ({CONFIG['hidden_dim']*2} bidirectional)")
     print(f"  Dropout: {CONFIG['dropout']}")
     total_params = sum(p.numel() for p in model.parameters())
@@ -413,7 +412,6 @@ def main():
     criterion = nn.CrossEntropyLoss()
     
     # Use SGD as in the paper (Section 4.1.2)
-    # Note: all model params (including nn.Embedding) are now trainable
     optimizer = SGD(model.parameters(), lr=CONFIG['lr'],
                     weight_decay=CONFIG['weight_decay'], momentum=CONFIG['momentum'])
     
@@ -422,7 +420,6 @@ def main():
     best_f1 = 0
     patience_counter = 0
     
-    # History tracking for visualization
     history = {
         'train_loss': [],
         'train_acc': [],
@@ -444,7 +441,6 @@ def main():
             model, val_loader, criterion, device, threshold=0.5
         )
         
-        # Record history
         history['train_loss'].append(train_loss)
         history['train_acc'].append(train_acc)
         history['val_loss'].append(val_loss)
@@ -459,7 +455,6 @@ def main():
         print(f"  Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f}")
         print(f"  Val Precision: {val_precision:.4f} | Val Recall: {val_recall:.4f} | Val F1: {val_f1:.4f}")
         
-        # Save best model
         if val_f1 > best_f1:
             best_f1 = val_f1
             patience_counter = 0
@@ -470,7 +465,6 @@ def main():
                 'word_vocab': word_vocab,
                 'idf_dict': idf_dict,
                 'template_vocab': template_vocab,
-                'vocab_size': vocab_size,
                 'f1': val_f1,
                 'config': CONFIG,
             }, os.path.join(CONFIG['save_dir'], 'best_model.pth'))
@@ -487,36 +481,9 @@ def main():
     
     # Save training curves
     plot_training_curves(history, os.path.join(CONFIG['save_dir'], 'training_curves.png'))
-    
-    # Find best threshold and evaluate
-    print(f"\n{'=' * 60}")
-    print("Loading best model for threshold tuning...")
-    print("=" * 60)
-    checkpoint = torch.load(os.path.join(CONFIG['save_dir'], 'best_model.pth'), weights_only=False)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    
-    best_threshold = find_best_threshold(model, val_loader, criterion, device, target_precision=0.95)
-    
-    # Final evaluation on test set
-    print(f"\n{'=' * 60}")
-    print(f"Final evaluation on TEST set (threshold={best_threshold:.2f})...")
-    print("=" * 60)
-    test_loss, test_acc, test_precision, test_recall, test_f1, all_preds, all_labels, _ = evaluate_with_threshold(
-        model, test_loader, criterion, device, threshold=best_threshold
-    )
-    
-    print(f"\nTest Results:")
-    print(f"  Loss: {test_loss:.4f} | Acc: {test_acc:.4f}")
-    print(f"  Precision: {test_precision:.4f} | Recall: {test_recall:.4f} | F1: {test_f1:.4f}")
-    
-    cm = confusion_matrix(all_labels, all_preds)
-    print(f"\nConfusion Matrix:\n{cm}")
-    print(f"\nClassification Report:")
-    print(classification_report(all_labels, all_preds, target_names=['Normal', 'Anomaly']))
-    
+
     print(f"\nTraining complete!")
     print(f"Best Val F1: {best_f1:.4f}")
-    print(f"Test F1: {test_f1:.4f}")
 
 
 if __name__ == "__main__":

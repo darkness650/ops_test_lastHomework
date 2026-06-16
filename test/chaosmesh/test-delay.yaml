@@ -1,0 +1,29 @@
+kind: NetworkChaos
+apiVersion: chaos-mesh.org/v1alpha1
+metadata:
+  namespace: default
+  name: test-delay
+spec:
+  selector:
+    namespaces:
+      - default
+    pods:
+      default:
+        - adservice-7bb8787db5-bws2v
+        - cartservice-dc9f4fb6d-w8757
+        - checkoutservice-58497b8654-bqqpk
+        - currencyservice-7f9f695db5-jkxmx
+        - emailservice-58dc4788c5-v9qmj
+        - paymentservice-7cff85ccd7-v6vbq
+        - productcatalogservice-54c86d9f79-dh5z5
+        - recommendationservice-6d8ddf5d5f-jsxf4
+        - redis-cart-6899b65948-wt2fm
+        - shippingservice-846f8585d7-4dksv
+  mode: all
+  action: delay
+  duration: 1h
+  delay:
+    latency: 2s
+    correlation: '90'
+    jitter: 3s
+  direction: to

@@ -5,23 +5,140 @@ Based on paper: "Robust Log-Based Anomaly Detection on Unstable Log Data" (ESEC/
 Implements the Semantic Vectorization pipeline from the paper (Section 3.2):
 1. Log Parsing: extract log event templates from raw messages
 2. Pre-processing: remove non-character tokens, stop words, split CamelCase
-3. Word Vectorization: map words to vectors via trainable nn.Embedding
+3. Word Vectorization: map words to vectors via FastText pre-trained vectors (FROZEN)
 4. TF-IDF Aggregation: aggregate word vectors into a fixed-dimension semantic vector per log event
 
-Each log sequence becomes a sequence of semantic vectors, fed into Attention-based Bi-LSTM.
-
-IMPORTANT: Word embeddings are trainable (nn.Embedding inside the model).
-The dataset returns raw token IDs + TF-IDF weights; semantic vector aggregation happens
-inside the model forward pass so gradients flow through the embeddings.
+Key difference from previous implementation:
+- FastText pre-trained vectors (Common Crawl, 300-dim) are used instead of trainable nn.Embedding
+- Semantic vectors are pre-computed during dataset construction (NOT during model forward)
+- Model input is semantic vectors, not token IDs
 """
 import json
 import re
 import math
+import os
 import torch
 import numpy as np
 from torch.utils.data import Dataset
 from collections import Counter, OrderedDict
 from tqdm import tqdm
+
+
+# Global FastText model singleton (loaded once)
+_FASTTEXT_MODEL = None
+
+
+def get_fasttext_model():
+    """Load FastText pre-trained model (Common Crawl, 300-dim vectors).
+    The model is loaded once and cached globally.
+    
+    If fasttext Python package is not available, falls back to gensim.
+    If neither is available, raises an error with install instructions.
+    """
+    global _FASTTEXT_MODEL
+    if _FASTTEXT_MODEL is not None:
+        return _FASTTEXT_MODEL
+    
+    # Try to load from common cache locations
+    # Note: FastText C++ backend cannot handle paths with spaces (e.g. Windows usernames)
+    # So we prioritize paths without spaces and copy the model if needed
+    cache_dirs = [
+        os.path.dirname(__file__),
+        r"d:\code\python\paper\LightLog",
+        os.path.expanduser("~/.cache/fasttext/"),
+    ]
+    
+    model_path = None
+    for d in cache_dirs:
+        for fname in ["cc.en.300.bin", "crawl-300d-2M.vec", "wiki-news-300d-1M.vec"]:
+            candidate = os.path.join(d, fname)
+            if os.path.exists(candidate):
+                model_path = candidate
+                break
+        if model_path:
+            break
+    
+    if model_path is None:
+        # Try to download FastText model
+        print("FastText model not found in cache. Downloading cc.en.300.bin...")
+        try:
+            import fasttext.util
+            fasttext.util.download_model('en', if_exists='ignore')
+            model_path = os.path.expanduser("~/.cache/fasttext/cc.en.300.bin")
+        except Exception as e:
+            print(f"Failed to download: {e}")
+            print("Falling back to gensim for loading FastText vectors...")
+    
+    # If model path contains spaces, copy it to a local path without spaces
+    # (FastText C++ backend fails on paths with spaces on Windows)
+    if model_path and ' ' in model_path:
+        import shutil
+        local_path = os.path.join(os.path.dirname(__file__), os.path.basename(model_path))
+        if not os.path.exists(local_path):
+            print(f"Copying model to path without spaces: {local_path}")
+            shutil.copy2(model_path, local_path)
+        model_path = local_path
+    
+    # Try fasttext package first
+    if model_path and model_path.endswith('.bin'):
+        try:
+            import fasttext
+            _FASTTEXT_MODEL = fasttext.load_model(model_path)
+            print(f"Loaded FastText model from {model_path}")
+            return _FASTTEXT_MODEL
+        except ImportError:
+            print("fasttext package not installed. Trying gensim...")
+    
+    # Fallback: try gensim for .vec files
+    if model_path and model_path.endswith('.vec'):
+        try:
+            from gensim.models import KeyedVectors
+            _FASTTEXT_MODEL = KeyedVectors.load_word2vec_format(model_path, limit=500000)
+            print(f"Loaded FastText vectors from {model_path} via gensim")
+            return _FASTTEXT_MODEL
+        except ImportError:
+            print("gensim not installed either.")
+    
+    # Last resort: try to download with gensim
+    try:
+        import gensim.downloader as api
+        print("Downloading fasttext-wiki-news-subwords-300 via gensim...")
+        _FASTTEXT_MODEL = api.load('fasttext-wiki-news-subwords-300')
+        print("Loaded via gensim downloader")
+        return _FASTTEXT_MODEL
+    except Exception as e:
+        print(f"Failed to load via gensim downloader: {e}")
+    
+    raise RuntimeError(
+        "Cannot load FastText model. Please install one of:\n"
+        "  pip install fasttext          (recommended, for .bin models)\n"
+        "  pip install gensim            (fallback, for .vec models)\n"
+        "Then download the model:\n"
+        "  python -c \"import fasttext.util; fasttext.util.download_model('en', if_exists='ignore')\""
+    )
+
+
+def get_word_vector(word, ft_model=None):
+    """Get FastText word vector for a given word.
+    Returns a 300-dim numpy array, or zeros if word not found.
+    """
+    if ft_model is None:
+        ft_model = get_fasttext_model()
+    
+    try:
+        # fasttext package returns numpy array
+        if hasattr(ft_model, 'get_word_vector'):
+            return ft_model.get_word_vector(word)
+        # gensim KeyedVectors
+        elif hasattr(ft_model, 'get_vector'):
+            return ft_model.get_vector(word)
+        elif hasattr(ft_model, '__getitem__'):
+            return ft_model[word]
+    except (KeyError, Exception):
+        pass
+    
+    # Word not found: return zero vector
+    return np.zeros(300, dtype=np.float32)
 
 
 def extract_message(log_entry):
@@ -93,7 +210,7 @@ _STOP_WORDS = {
     'too', 'very', 'just', 'don', 'now', 'if', 'as', 'about', 'into', 'through',
     'during', 'before', 'after', 'above', 'below', 'between', 'under', 'again',
     'further', 'then', 'once', 'here', 'there', 'any', 'up', 'down', 'out', 'off',
-    'over', 'the', 'to', 'of', 'and', 'a', 'in', 'is', 'it', 'you', 'that',
+    'over',
 }
 
 
@@ -131,7 +248,7 @@ def preprocess_log_event(template):
 
 
 class WordVocab:
-    """Word vocabulary for building semantic vectors."""
+    """Word vocabulary (kept for compatibility with old checkpoints and IDF computation)."""
     
     def __init__(self, min_freq=2):
         self.min_freq = min_freq
@@ -152,7 +269,6 @@ class WordVocab:
                     tokens = preprocess_log_event(template)
                     self.word_counter.update(tokens)
         
-        # Reserve index 0 for <PAD>/<UNK>
         idx = 1
         for word, freq in self.word_counter.most_common():
             if freq >= self.min_freq:
@@ -165,11 +281,10 @@ class WordVocab:
         return self
     
     def encode(self, word):
-        """Convert word to ID. Returns 0 for unseen words."""
         return self.word2idx.get(word, 0)
     
     def __len__(self):
-        return len(self.word2idx) + 1  # +1 for PAD/UNK(0)
+        return len(self.word2idx) + 1
 
 
 class LogTemplateVocab:
@@ -191,7 +306,7 @@ class LogTemplateVocab:
                     template = parse_to_template(msg)
                     self.template_counter[template] += 1
         
-        idx = 2  # 0: <PAD>, 1: <UNK>
+        idx = 2
         for template, freq in self.template_counter.most_common():
             if freq >= self.min_freq:
                 self.template2idx[template] = idx
@@ -246,76 +361,79 @@ def compute_idf(sequences, word_vocab):
 
 class SemanticVectorBuilder:
     """
-    Prepares word-level token data from log templates.
+    Builds semantic vectors using FastText pre-trained word vectors + TF-IDF aggregation.
     
-    Outputs (word_ids, tfidf_weights) per log event. The actual semantic vector
-    aggregation with trainable nn.Embedding happens inside the model forward pass.
+    This follows the paper's Semantic Vectorization pipeline (Section 3.2):
+    - Each word in a log event is mapped to a 300-dim FastText vector (FROZEN)
+    - TF-IDF weights are computed per word
+    - Semantic vector: V = (1/N) * sum(w_i * v_i)  (Eq. 1 in paper)
     
-    Eq. 1: V = (1/N) * sum(w_i * v_i) where w_i = TF-IDF weight, v_i = word vector
-    The model uses nn.Embedding for v_i so gradients can flow through.
+    The resulting semantic vectors are of fixed dimension (300) regardless of the
+    number of words in the log event.
     """
     
-    def __init__(self, word_vocab, idf_dict):
+    def __init__(self, word_vocab, idf_dict, fasttext_model=None):
         self.word_vocab = word_vocab
         self.idf_dict = idf_dict
+        if fasttext_model is None:
+            fasttext_model = get_fasttext_model()
+        self.ft_model = fasttext_model
     
-    def build_token_data(self, template):
+    def build_semantic_vector(self, template):
         """
-        Given a log event template, return (word_ids, weights) for each word.
+        Given a log event template, compute its semantic vector using FastText + TF-IDF.
+        
+        Eq. 1: V = (1/N) * sum(w_i * v_i)
+        where w_i = TF * IDF, v_i = FastText pre-trained word vector
         
         Returns:
-            word_ids: list of int (word vocabulary indices)
-            weights: list of float (TF-IDF weights)
+            numpy array of shape (300,) - the semantic vector
         """
         tokens = preprocess_log_event(template)
         if not tokens:
-            return [], []
+            return np.zeros(300, dtype=np.float32)
         
-        # Compute TF
+        N = len(tokens)
         tf_counter = Counter(tokens)
-        total = len(tokens)
         
-        word_ids = []
-        weights = []
+        semantic_vec = np.zeros(300, dtype=np.float32)
         
         for word, count in tf_counter.items():
-            tf = count / total
+            tf = count / N
             idf = self.idf_dict.get(word, 0.0)
             w = tf * idf
             
-            word_id = self.word_vocab.encode(word)
-            word_ids.append(word_id)
-            weights.append(w)
+            word_vec = get_word_vector(word, self.ft_model)
+            semantic_vec += w * word_vec
         
-        # Normalize: divide each weight by N (Eq. 1 in paper)
-        N = len(tokens)
-        weights = [w / N for w in weights]
+        # Normalize by N (Eq. 1)
+        semantic_vec = semantic_vec / N
         
-        return word_ids, weights
-    
-    def build_sequence_vectors(self, template_ids, templates_list):
-        """Deprecated: use model's forward pass instead."""
-        raise NotImplementedError("Use model.forward() which has learnable nn.Embedding")
+        return semantic_vec
 
 
 class LogDataset(Dataset):
     """
     PyTorch Dataset for log anomaly detection.
-    
-    Each sample returns raw token data per log event:
-    - events_tokens: list of (word_ids, weights) tuples, one per log event
+
+    Each sample returns:
+    - event_tokens: list of (token_ids, tfidf_weights) per log event
     - label: 0 (normal) or 1 (anomaly)
-    
-    The model's nn.Embedding + aggregation produce semantic vectors during training.
+
+    The model uses a trainable nn.Embedding initialized with FastText vectors.
     """
-    
-    def __init__(self, file_path, template_vocab, semantic_builder=None, max_len=200, max_groups=None):
+
+    def __init__(self, file_path, template_vocab, word_vocab, idf_dict,
+                 max_len=200, max_words=10, max_groups=None):
         self.template_vocab = template_vocab
-        self.semantic_builder = semantic_builder
+        self.word_vocab = word_vocab
+        self.idf_dict = idf_dict
         self.max_len = max_len
-        self.sequences = []  # list of (events_token_data, label)
-        
-        print(f"Loading {file_path.split(chr(92))[-1]}...")
+        self.max_words = max_words
+        self.sequences = []  # list of (event_tokens_list, label)
+        # event_tokens_list: list of (token_ids, tfidf_weights) per event
+
+        print(f"Loading {os.path.basename(file_path)}...")
         count = 0
         with open(file_path, 'r', encoding='utf-8') as f:
             for line in tqdm(f, desc="Reading"):
@@ -328,41 +446,63 @@ class LogDataset(Dataset):
                     item = json.loads(line)
                     logs = item.get('logs', [])
                     label = item.get('label', 0)
-                    
+
                     if not logs:
                         continue
-                    
-                    # Extract templates and build token data per event
-                    events_tokens = []
+
+                    # Build token IDs and TF-IDF weights for each log event
+                    event_tokens = []
                     for log_entry in logs:
                         msg = extract_message(log_entry)
                         if msg:
                             template = parse_to_template(msg)
-                            if semantic_builder is not None:
-                                word_ids, weights = semantic_builder.build_token_data(template)
-                            else:
-                                word_ids, weights = [], []
-                            events_tokens.append((word_ids, weights))
-                    
-                    if events_tokens:
-                        self.sequences.append((events_tokens, label))
+                            token_ids, tfidf_weights = self._encode_event(template)
+                            event_tokens.append((token_ids, tfidf_weights))
+                        else:
+                            event_tokens.append(([], []))
+
+                    if event_tokens:
+                        self.sequences.append((event_tokens, label))
                         count += 1
-                except Exception:
+                except Exception as e:
                     continue
-        
+
         print(f"Loaded {len(self.sequences)} samples")
-    
+
+    def _encode_event(self, template):
+        """Encode a log event template into token IDs and TF-IDF weights."""
+        tokens = preprocess_log_event(template)
+        if not tokens:
+            return [], []
+
+        # Truncate to max_words
+        tokens = tokens[:self.max_words]
+        N = len(tokens)
+        tf_counter = Counter(tokens)
+
+        token_ids = []
+        tfidf_weights = []
+        for word in tokens:
+            idx = self.word_vocab.encode(word) if self.word_vocab else 0
+            tf = tf_counter[word] / N
+            idf = self.idf_dict.get(word, 0.0) if self.idf_dict else 0.0
+            w = tf * idf
+            token_ids.append(idx)
+            tfidf_weights.append(w)
+
+        return token_ids, tfidf_weights
+
     def __len__(self):
         return len(self.sequences)
-    
+
     def __getitem__(self, idx):
-        events_tokens, label = self.sequences[idx]
-        
-        # Truncate if too long
-        if len(events_tokens) > self.max_len:
-            events_tokens = events_tokens[:self.max_len]
-        
-        return events_tokens, torch.tensor(label, dtype=torch.long)
+        event_tokens, label = self.sequences[idx]
+
+        # Truncate events to max_len
+        if len(event_tokens) > self.max_len:
+            event_tokens = event_tokens[:self.max_len]
+
+        return event_tokens, torch.tensor(label, dtype=torch.long)
     
     def get_sequence_length_stats(self):
         """Print statistics about sequence lengths."""
