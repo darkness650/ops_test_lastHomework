@@ -260,14 +260,14 @@ JMeter 分别完成系统功能自动化测试与性能压力测试，用采集�
 		\centering
 		\includegraphics[width=\textwidth]{./figure/LightLog/LogRobust/data_process_robust.png}
 		\caption{数据预处理}
-		\label{fig:dataprocess}
+		\label{fig:Robustdataprocess}
 	\end{subfigure}
 	\hfill
 	\begin{subfigure}{0.45\textwidth}
 		\centering
 		\includegraphics[width=\textwidth]{./figure/LightLog/LogRobust/model_robust.png}
 		\caption{模型架构}
-		\label{fig:model}
+		\label{fig:RobustModel}
 	\end{subfigure}
 	\caption{LogRobust方法}
 	\label{fig:LogRobust}
@@ -275,11 +275,11 @@ JMeter 分别完成系统功能自动化测试与性能压力测试，用采集�
 
 图\ref{fig:LogRobust}中展示了LogRobust使用的方法，图片来自于LogRobust论文\cite{zhang2019robust}。
 
-如图\ref{fig:dataprocess}所示，LogRobust先对日志序列进行预处理，Log Seq（日志序列）会被转化为Log Event（结构化日志事件），在这之后结构化日志事件会被预训练的300维fasttext向量编码为语义向量，送入模型中。
+如图\ref{fig:Robustdataprocess}所示，LogRobust先对日志序列进行预处理，Log Seq（日志序列）会被转化为Log Event（结构化日志事件），在这之后结构化日志事件会被预训练的300维fasttext向量编码为语义向量，送入模型中。
 
-如图\ref{fig:model},语义向量将被送入如图的模型架构中，日志事件会按时序送入一个双向LSTM网络架构中，双向的LSTM可以保证该架构具有日志序列的全局信息，为下面的注意力机制提供更全面的信息。
+如图\ref{fig:RobustModel},语义向量将被送入如图的模型架构中，日志事件会按时序送入一个双向LSTM网络架构中，双向的LSTM可以保证该架构具有日志序列的全局信息，为下面的注意力机制提供更全面的信息。
 
-网络使用加性注意力，对每个时间步进行注意力输出，该注意力层在双层LSTM后。该层会给每个日志事件进行打分，评判出日志事件的重要性。再之后经过一个全连接层与softmax层输出两个值，正常概率和异常概率，用此综合评判一条日志序列是否异常。
+该网络采用加性注意力机制，在双向LSTM层之后对每个时间步计算注意力权重，为每个日志事件的重要性进行评分。随后，一个全连接层将加权求和后的向量映射为两个原始分数，再经由Softmax层转换为最终的概率分布（正常与异常的概率），从而综合判断一条日志序列是否异常。
 
 在附录中我们提供了LogRobust的训练曲线作为参考\ref{fig:LogRobustTrain}。有关LogRobust复现的代码存放在项目仓库中LightLog下的LogRobust文件夹下
 
