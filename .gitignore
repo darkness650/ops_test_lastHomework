@@ -9,6 +9,7 @@ latex/*
 
 # 但保留 .tex 文件
 !latex/*.tex
+!latex/*.sty
 
 # 但保留 figure 文件夹（及其所有内容）
 !latex/figure/
