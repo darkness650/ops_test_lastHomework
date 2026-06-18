@@ -348,8 +348,190 @@ Online Boutique 原始系统以 \texttt{frontend} 作为用户入口，浏览器
 
 \subsubsection{对比实验结果及分析}
 
-\section{智能体运维}
-通过这次实验记录自己在本次实验中所遇到的问题，以及心得感悟即相关问题和解决方法。如果遇到异常情况，或者无法完成任务时，也请分析错误产生的原因。
+\section{运维智能体}
+\subsection{问题背景}
+随着微服务架构在生产环境中的广泛落地，
+单个业务系统往往被拆分为数十甚至上百个 Kubernetes 资源对象（Deployment、StatefulSet、Service、Pod、ConfigMap 等），
+并通过容器编排平台进行动态调度。
+这一架构在提升可扩展性的同时，也给运维带来了新的挑战：
+\begin{itemize}
+	\item 集群状态复杂：运维人员需要实时监控大量 Pod、Node、Deployment 等资源的状态，手动巡检效率低下。
+	\item 异常检测困难：系统异常表现形式多样，仅凭经验难以快速识别和分类。
+	\item 根因分析耗时：出现故障时需要关联日志、指标、事件等多维度数据进行分析，且响应链路往往比较长，导致分析耗时较长。
+	\item 强依赖经验：故障定位与恢复建议高度依赖运维工程师的个人经验，难以标准化与传承。
+\end{itemize}
+\par
+为解决上述问题，本项目设计并实现了一套基于大语言模型（LLM）的微服务运维智能体（Ops Agent），
+其目标是构建一个能自动感知集群状态、自动分析异常根因、自动生成恢复方案的智能系统，
+闭环完成"检测—定位—恢复"这一运维核心链路。
+智能体既可作为独立 CLI 工具被运维工程师直接调用，
+也可通过 Web 前端以图形化界面形式使用，
+对 Kubernetes 集群进行定时轮询监控与异常分析，
+实现自动化的智能运维。
+
+\subsection{实现的功能}
+本系统在加分项给出的四项可选能力中实现了三项功能：异常检测、根因分类、故障恢复建议。
+智能体会定时自动收集 Kubernetes 集群中 Pod、Node、Deployment、Service 等资源的状态信息，
+并基于规则引擎进行快速的异常检测，
+识别出异常的资源或事件，并给异常划分严重等级；
+发现异常后，智能体会自动调用大语言模型对检测到的异常进行智能根因分析，
+并对分析结果提供置信度评分，帮助用户判断分析可靠性；
+最后，智能体还会根据分析结果生成故障恢复建议，
+并为每个恢复步骤标注风险等级，提醒用户注意操作风险，
+同时为每个恢复步骤附带验证命令或方法，方便用户确认操作效果是否生效。
+\par
+另外，本系统还实现了集群性能分析的功能：
+智能体支持集成 Prometheus，可以采集 CPU、内存、网络等性能指标，
+并利用大语言模型对指标数据进行分析，
+标明集群的各项负载，
+指出是否存在性能瓶颈，帮助用户更好地分配系统资源；
+智能体还会根据业务活动数据，总结业务增长及分布特征，
+帮助用户更好地把握业务趋势；
+同时，智能体也会针对性能与业务数据，给出集群优化建议，
+指导用户优化集群性能。
+\par
+同时，系统也保留了直接与智能体对话的功能，用户可以直接通过自然语言与智能体进行交互，
+使用智能体查询集群状态、分析异常、获取日志等，而不必受限于预设工作流的提示词模板，
+这为用户提供了更大的灵活性和便利性。
+系统整体采用模块化的设计，提供统一接口，
+未来可以方便地扩展更多Agent工具和工作流，
+以满足不同场景下的运维需求。
+
+\subsection{智能体总体架构}
+智能体采用分层 + 插件化架构，整体可划分为五层：用户层、接口层、智能体层、工具层、数据层。
+具体系统架构如图~\ref{fig:system_architecture}所示。
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.85\textwidth]{figure/agent/system_architecture.png}
+	\caption{智能体系统架构图}
+	\label{fig:system_architecture}
+\end{figure}
+
+\subsection{关键技术细节}
+\subsubsection{工具调用机制（Tool Calling）}
+工具调用是 Agent 智能体区别于传统聊天机器人的关键。
+本项目采用标准的 OpenAI Function Calling 协议实现工具调用：
+\begin{enumerate}
+	\item 工具注册：每个工具继承 BaseTool 基类，定义 name、description 和 parameters 属性。
+	\item 工具描述生成：ToolRegistry 将工具信息转换为 OpenAI 格式的 Function Schema。
+	\item LLM 调用：将工具列表传递给 LLM，LLM 根据用户需求决定是否调用工具。
+	\item 工具执行：解析 LLM 返回的 tool\_calls，调用对应的工具并获取结果。
+	\item 结果反馈：将工具执行结果作为新消息加入上下文，继续 LLM 对话循环。
+\end{enumerate}
+新增工具只需继承 BaseTool 并在 register\_xxx\_tools$\left( \right)$ 中注册，即可被智能体自动调用，
+实现了插件化扩展。
+\par
+在本项目中，为满足运维的需要，智能体实现了三大类工具，具体如下：
+\begin{itemize}
+	\item K8s 监控工具（8个）：
+	\begin{enumerate}
+		\item get\_cluster\_status：获取集群整体状态。
+		\item list\_pods：列出 Pod，支持标签筛选。
+		\item get\_pod\_detail：获取 Pod 详细状态、事件、条件。
+		\item get\_pod\_logs：拉取 Pod 日志。
+		\item list\_deployments：列出 Deployment 及副本数。
+		\item list\_services：列出 Service。
+		\item list\_nodes：列出所有 Node。
+		\item list\_events：列出 Warning 事件。
+	\end{enumerate}
+	\item Prometheus 监控工具（5个）：
+	\begin{enumerate}
+		\item prometheus\_query：自定义 PromQL 即时/范围查询。
+		\item cluster\_metrics：获取集群整体 CPU/内存指标。
+		\item server\_metrics：获取服务器 CPU/内存/网络趋势指标。
+		\item node\_metrics：获取各节点资源使用情况。
+		\item metrics\_comparison：对比两个时段指标数据。
+	\end{enumerate}
+	\item 日志分析工具（2个）：
+	\begin{enumerate}
+		\item k8s\_get\_pod\_logs：通过 K8s API 获取 Pod 日志。
+		\item es\_query\_logs：通过 ElasticSearch 查询日志。
+	\end{enumerate}
+\end{itemize}
+
+\subsubsection{大模型提示词工程（LLM Prompt）}
+智能体的系统提示（SYSTEM\_PROMPT）明确约束了输出格式（严格 JSON），并通过三类任务级 prompt 分阶段调用：
+\begin{enumerate}
+	\item 异常检测 prompt：输入 K8s 状态 + Prometheus 指标 + 事件，输出异常列表。
+	\item 根因分析 prompt：输入异常 + 日志 + 指标趋势，输出根因分类。
+	\item 恢复建议 prompt：输入根因 + 当前状态，输出有序恢复步骤。
+\end{enumerate}
+每个 prompt 都附带"注意事项"段（如"category 必须从指定列表中选择"），
+降低 LLM 输出格式漂移的概率。
+LLM 失败时通过 \_parse\_json\_response$\left( \right)$ 中的正则提取 $\left\{...\right\}$ 块进行兜底，
+再失败则使用基于分类的默认模板，保证系统可用性。
+
+\subsubsection{异步任务管理}
+AnomalyAnalyzer 在独立线程中执行 LLM 分析，主线程的轮询任务无需等待 LLM 返回；
+使用不同的 ID 来对 LLM 分析任务进行会话隔离，确保分析任务相互独立；
+AnalysisTaskManager 维护任务队列与状态机（pending / running / completed / failed），
+前端可通过 /anomaly/status 实时查询分析进度；
+同时，使用锁机制确保同一时间只有一个分析任务在执行，避免并发问题。
+这样使得后台的 LLM 分析任务可以并行执行，
+大大提高了分析速度，优化了用户体验。
+
+\subsection{遇到的问题及解决方案}
+\subsubsection{Prometheus 客户端重试机制}
+Windows 环境下 Prometheus HTTP 连接常出现 WinError 10054（远程主机强迫关闭）的错误。
+经过研究，最终通过以下策略解决了该问题：
+\begin{itemize}
+	\item 指数退避：每次重试间隔 delay * （attempt+1）。
+	\item 可重试异常过滤：仅对 connection / timeout / reset 类错误重试。
+	\item 重试前回调：\_before\_retry 重置 HTTP 客户端（关闭旧连接、创建新连接），绕过被服务器主动关闭的 keep-alive 连接。
+\end{itemize}
+
+\subsubsection{最大调用次数限制}
+LLM 有时会陷入无限工具调用的循环。
+为防止 LLM 无限调用工具，项目引入了最大调用次数限制（可在 .env 中配置，默认值为 10 次）。
+在 LLM 调用工具时，会检查当前调用次数是否超过限制，
+如果超过则返回错误信息。
+
+\subsection{效果展示}
+\subsubsection{前端界面展示}
+本系统围绕智能体的相关功能，搭建了以下几个界面：
+\begin{itemize}
+	\item 集群概览页面（见附录图~\ref{fig:dashboard}）：集群概览页面是系统的主入口，提供 Kubernetes 集群状态的实时监控和异常告警展示，可帮助运维人员快速了解集群运行状态和异常情况。
+	\item 智能对话页面（见附录图~\ref{fig:chat}）：智能对话页面提供与运维智能体的自然语言交互界面，用户可通过该界面直接与智能体进行对话，获取集群相关信息和建议措施。
+	\item 历史记录页面（见附录图~\ref{fig:history}）：历史记录页面展示定期健康检查的历史记录，用户可通过该界面查看最近的异常检测结果、根因分析结果、恢复建议等。
+	\item 性能分析页面（见附录图~\ref{fig:performance_analysis}）：性能分析页面提供性能分析任务管理和报告查看功能，用户可通过该界面提交性能分析任务、设置定时任务、查看分析报告等。
+	\item 系统配置页面（见附录图~\ref{fig:settings}）：系统配置页面可配置系统的参数，如轮询时间间隔、自动轮询开关等。
+\end{itemize}
+
+\subsubsection{异常分析报告展示}
+当检测到异常时，智能体会生成异常分析报告，主要包含以下内容：
+\begin{itemize}
+	\item 异常信息概览部分（见附录图~\ref{fig:exception_report1}）：显示异常的类型、发生时间、严重情况等基本信息，帮助运维人员快速了解异常情况。
+	\item 根因分析部分（见附录图~\ref{fig:exception_report2}）：明确给出异常的根因分类及其置信度，并提供相应的分析过程和证据，帮助运维人员快速定位问题。
+	\item 故障恢复建议部分（见附录图~\ref{fig:exception_report3}）：根据根因分析结果，提供具体的故障恢复建议，帮助运维人员快速修复异常。
+	\item 风险提醒部分（见附录图~\ref{fig:exception_report4}）：给出修复过程中可能存在的风险，提醒运维人员谨慎操作。
+\end{itemize}
+附录图片中的异常是因为连接不到外网，导致某个 Pod 无法正常拉取镜像。
+由报告可见，智能体成功地定位到了异常的根因，即网络连接问题，
+同时提供了具体的故障恢复建议。
+按照智能体给出的建议，配置镜像仓库后，成功修复了异常。
+由此可见，运维智能体在异常检测和恢复方面具有较高的准确性和效率，能够帮助运维人员快速定位问题并修复异常。
+
+\subsubsection{性能分析报告展示}
+当提交性能分析任务后，智能体会生成性能分析报告，主要包含以下内容：
+\begin{itemize}
+	\item 报告基本信息及摘要部分（见附录图~\ref{fig:performance_analysis1}）：显示性能分析报告的 ID、创建时间、覆盖范围等基本信息，以及分析结果的摘要。
+	\item 集群性能指标部分（见附录图~\ref{fig:performance_analysis2}）：汇总集群的详细性能指标，帮助运维人员快速了解集群的负载状态。
+	\item 性能瓶颈分析部分（见附录图~\ref{fig:performance_analysis3}）：根据性能指标，指出集群存在的性能瓶颈，并给出相应的证据。
+	\item 业务活动分析部分（见附录图~\ref{fig:performance_analysis4}）：分析业务活动的特征及趋势，帮助运维人员从业务角度了解集群的负载情况。
+	\item 优化建议部分（见附录图~\ref{fig:performance_analysis5}）：根据性能指标和业务活动分析结果，提供具体的优化建议，帮助运维人员优化系统资源分配。
+\end{itemize}
+
+\subsection{未来扩展}
+未来，还可以从以下几个方面扩展智能体的功能：
+\begin{itemize}
+	\item ChaosMesh 联动：实现"故障注入 → 智能体检测 → 自动恢复"闭环验证。
+	\item 多集群管理：支持同时管理多个 Kubernetes 集群。
+	\item 日志分析工具扩展：如支持更多日志格式、提供更丰富的日志分析功能等。
+	\item 推理能力扩展：可构建运维知识图谱或本地知识库，提升智能体的推理能力。
+	\item 自动化故障修复：可为智能体添加故障修复的相关工具，在用户授权下，自动执行低风险的恢复步骤，修复检测到的异常。
+	\item 多语言支持：支持中文、英文等多语言，提升用户体验。
+	\item 纵向监控：不仅支持横向监控当前时间点的集群状态，还支持纵向监控历史趋势，帮助运维人员发现异常模式和趋势。
+\end{itemize}
 
 \section{总结与展望}
 
@@ -490,6 +672,108 @@ Jia Li, Shimin Di, Yanyan Shen, and Lei Chen.
 	\caption{LogRobust训练曲线}
 	\label{fig:LogRobustTrain}
 \end{figure}
+
+\subsection*{运维智能体相关截图}
+\label{sec:appendix_agent_figures}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{"./figure/agent/dashboard.png"}
+	\caption{运维智能体集群概览页面截图}
+	\label{fig:dashboard}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{"./figure/agent/chat.png"}
+	\caption{运维智能体智能对话页面截图}
+	\label{fig:chat}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{"./figure/agent/history.png"}
+	\caption{运维智能体历史记录页面截图}
+	\label{fig:history}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{"./figure/agent/performance_analysis.png"}
+	\caption{运维智能体性能分析页面截图}
+	\label{fig:performance_analysis}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{"./figure/agent/settings.png"}
+	\caption{运维智能体系统配置页面截图}
+	\label{fig:settings}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{"./figure/agent/exception_report1.png"}
+	\caption{运维智能体异常分析报告-异常信息概览部分截图}
+	\label{fig:exception_report1}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{"./figure/agent/exception_report2.png"}
+	\caption{运维智能体异常分析报告-根因分析部分截图}
+	\label{fig:exception_report2}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{"./figure/agent/exception_report3.png"}
+	\caption{运维智能体异常分析报告-故障恢复建议部分截图}
+	\label{fig:exception_report3}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{"./figure/agent/exception_report4.png"}
+	\caption{运维智能体异常分析报告-风险提醒部分截图}
+	\label{fig:exception_report4}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{"./figure/agent/performance_analysis1.png"}
+	\caption{运维智能体性能分析报告-基本信息及摘要部分截图}
+	\label{fig:performance_analysis1}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{"./figure/agent/performance_analysis2.png"}
+	\caption{运维智能体性能分析报告-集群性能指标部分截图}
+	\label{fig:performance_analysis2}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{"./figure/agent/performance_analysis3.png"}
+	\caption{运维智能体性能分析报告-性能瓶颈分析部分截图}
+	\label{fig:performance_analysis3}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{"./figure/agent/performance_analysis4.png"}
+	\caption{运维智能体性能分析报告-业务活动分析部分截图}
+	\label{fig:performance_analysis4}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{"./figure/agent/performance_analysis5.png"}
+	\caption{运维智能体性能分析报告-优化建议部分截图}
+	\label{fig:performance_analysis5}
+\end{figure}
+
 \end{spacing}
 
 
