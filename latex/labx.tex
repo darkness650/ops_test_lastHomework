@@ -120,7 +120,7 @@
 
 	{\makebox[4\ccwd][s]{实验名称：}}& ~\kaishu 软件测试与维护大作业\\
 	{\makebox[4\ccwd][s]{学\qquad 院：}}& ~\kaishu 软件学院\\
-		{\makebox[4\ccwd][s]{姓\qquad 名：}}& ~\kaishu 第九组\\
+		{\makebox[4\ccwd][s]{小\qquad 组：}}& ~\kaishu 第九组\\
 
 	{\makebox[4\ccwd][s]{指导老师：}} & ~\kaishu 张圣林\\
 
@@ -264,10 +264,6 @@ Online Boutique 原始系统以 \texttto{frontend} 作为用户入口，浏览�
 两个新增服务都补充了 Dockerfile、Kubernetes Deployment 和 Service 配置，并加入到 skaffold 构建流程中。\texttto{frontend} 通过环境变量读取库存服务和进货服务地址，例如 \texttto{INVENTORY\_SERVICE\_URL} 和 \texttto{RESTOCK\_SERVICE\_URL}。在 Kubernetes 中，服务之间不使用 \texttto{localhost} 通信，而是通过 Service 名称进行访问，例如 \texttto{inventoryservice} 和 \texttto{restockservice}。这样可以适应 Pod 动态创建和销毁的环境。
 
 测试方面，库存服务重点验证库存查询、库存预留、库存不足拒绝、库存释放和异常商品 ID 等场景；进货服务重点验证 Token 校验、参数校验、进货成功和依赖库存服务失败等场景。前端功能则通过手动操作验证：商品详情页能看到库存，加入购物车后库存减少，清空购物车后库存回滚，管理员登录后可以进货，进货成功后弹窗提示并刷新页面。测试截图和 Kubernetes 运行状态截图统一放在附录中。
-
-\subsection{本部分小结}
-
-本部分在 Online Boutique 原有系统基础上新增了库存服务和进货服务，并完成了前端集成、容器化部署和功能测试。库存服务让商品库存从静态页面信息变成独立业务状态，支持查询、扣减、释放和监控；进货服务将管理员补货从普通购买流程中拆分出来，并通过管理员登录和 API Token 进行保护。经过改造后，系统形成了较完整的库存业务闭环：用户购买会占用库存，取消购物车会恢复库存，库存不足会拒绝请求，管理员可以在独立页面补充库存。该过程体现了微服务系统中服务拆分、接口协作、状态一致性、服务发现和可测试性的基本思想。
 
 
 \section{部署、故障注入与监控、数据采集分析}
@@ -1188,11 +1184,11 @@ LLM 有时会陷入无限工具调用的循环。
 \subsection{项目总结}
 本项目围绕微服务运维全链路，完成了从系统开发、部署监控、故障注入、数据采集到异常检测算法复现与智能运维体搭建的完整闭环实验，主要成果如下：
 
-\textbf{微服务系统开发方面}，在 Online Boutique 基础上新增了 inventoryservice 和 restockservice 两个微服务，为系统补充了库存管理和进货管理能力。库存服务独立维护商品库存状态，支持查询、预留、释放等操作；进货服务作为管理员补货入口，通过登录验证和 API Token 双重保护。前端完成全链路集成，实现了“加入购物车扣减库存、清空购物车恢复库存、库存不足拒绝请求”的业务闭环，体现了微服务拆分、服务间协作和状态一致性的设计思想。
+\textbf{微服务系统开发方面}，在 Online Boutique 原有系统基础上新增了库存服务和进货服务，并完成了前端集成、容器化部署和功能测试。库存服务让商品库存从静态页面信息变成独立业务状态，支持查询、扣减、释放和监控；进货服务将管理员补货从普通购买流程中拆分出来，并通过管理员登录和 API Token 进行保护。经过改造后，系统形成了较完整的库存业务闭环：用户购买会占用库存，取消购物车会恢复库存，库存不足会拒绝请求，管理员可以在独立页面补充库存。该过程体现了微服务系统中服务拆分、接口协作、状态一致性、服务发现和可测试性的基本思想。
 
-\textbf{运维实验平台搭建方面}，基于 Minikube 完成了完整微服务集群部署，通过 Prometheus + Grafana 构建监控体系，利用 Fluentd 实现日志采集，借助 Chaos Mesh 注入网络丢包和资源压力两类可控故障。在约 6 小时的监控窗口内，采集了涵盖 CPU、内存、网络、磁盘、系统负载等多维度的 OPS 运维指标数据集，为后续异常检测实验提供了真实数据基础。
+\textbf{运维实验平台搭建方面}，基于 Dockerfile镜像构建+Kubernetes容器编排 完成了完整微服务集群部署，通过 Prometheus + Grafana 构建监控体系，利用 Fluentd 实现日志采集，借助 Chaos Mesh 注入网络丢包和资源压力两类可控故障。在约 6 小时的监控窗口内，采集了涵盖 CPU、内存、网络、磁盘、系统负载等多维度的 OPS 运维指标数据集，为后续异常检测实验提供了真实数据基础。
 
-\textbf{时间序列异常检测复现方面}，对 FluxEV 论文进行了完整复现。AIOps/KPI 数据集上达到 F1=0.7970（略高于论文报告的 0.790），Yahoo 数据集上达到 F1=0.6397（与论文 0.666 存在约 0.026 差距，可能与数据版本及参数细节有关）。OPS 自采集数据集总体 F1=0.7849，Precision=0.8765，表明模型在自采集指标上误报较少，验证了 FluxEV 在真实运维场景中的适用性。
+\textbf{指标异常检测复现方面}，对 FluxEV 论文进行了完整复现。AIOps/KPI 数据集上达到 F1=0.7970（略高于论文报告的 0.790），Yahoo 数据集上达到 F1=0.6397（与论文 0.666 存在约 0.026 差距，可能与数据版本及参数细节有关）。OPS 自采集数据集总体 F1=0.7849，Precision=0.8765，表明模型在自采集指标上误报较少，验证了 FluxEV 在真实运维场景中的适用性。
 
 \textbf{日志异常检测方面}，构建了基于 Fluentd 采集 + Chaos Mesh 故障注入的自建日志数据集，共约 23 万条序列。完整复现了 LightLog、LogAnomaly 和 LogRobust 三种方法，并开展了消融实验与对比实验。LightLog 在自建数据集上达到 F1=0.9835，参数量仅 8,050（约为 LogAnomaly 的 3.2\%、LogRobust 的 1.4\%），测试速度相比 LogRobust 提升约 23 倍，验证了轻量化时序卷积网络在日志异常检测中的有效性与高效性。
 
@@ -1236,396 +1232,400 @@ Jia Li, Shimin Di, Yanyan Shen, and Lei Chen.
 \newblock In \emph{Proceedings of the 14th ACM International Conference on Web Search and Data Mining (WSDM '21)}, pages 824--832, 2021.
 
 \end{thebibliography}
-\section{附录}
+
+\newpage
+\section*{\centering\textbf{附录}}
+
+\begin{appendices}
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.85\textwidth]{figure/microservice/service_metrics.png}
+		\caption{inventoryservice 监控指标截图}
+		\label{fig:appendix_service_metrics}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.85\textwidth]{figure/microservice/watch.png}
+		\caption{商品详情页库存展示截图}
+		\label{fig:appendix_inventory_watch}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\begin{minipage}{0.45\textwidth}
+			\centering
+			\includegraphics[width=\textwidth]{figure/microservice/beforeenter.png}
+			加入购物车前
+		\end{minipage}
+		\hfill
+		\begin{minipage}{0.45\textwidth}
+			\centering
+			\includegraphics[width=\textwidth]{figure/microservice/buyit.png}
+			选择购买数量
+		\end{minipage}
+		\caption{库存扣减前的商品状态}
+		\label{fig:appendix_inventory_before}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\begin{minipage}{0.45\textwidth}
+			\centering
+			\includegraphics[width=\textwidth]{figure/microservice/afterjoinit.png}
+			加入购物车后库存减少
+		\end{minipage}
+		\hfill
+		\begin{minipage}{0.45\textwidth}
+			\centering
+			\includegraphics[width=\textwidth]{figure/microservice/emptyit.png}
+			清空购物车
+		\end{minipage}
+		\caption{加入购物车与清空购物车操作过程}
+		\label{fig:appendix_inventory_cart}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.85\textwidth]{figure/microservice/afteremptyit.png}
+		\caption{清空购物车后库存回滚截图}
+		\label{fig:appendix_inventory_after_empty}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\begin{minipage}{0.45\textwidth}
+			\centering
+			\includegraphics[width=\textwidth]{figure/microservice/inventoryadmin.png}
+			管理员进货页面
+		\end{minipage}
+		\hfill
+		\begin{minipage}{0.45\textwidth}
+			\centering
+			\includegraphics[width=\textwidth]{figure/microservice/inventory10.png}
+			输入进货数量
+		\end{minipage}
+		\caption{管理员进货操作页面}
+		\label{fig:appendix_restock_page}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\begin{minipage}{0.45\textwidth}
+			\centering
+			\includegraphics[width=\textwidth]{figure/microservice/respondins.png}
+			进货成功弹窗
+		\end{minipage}
+		\hfill
+		\begin{minipage}{0.45\textwidth}
+			\centering
+			\includegraphics[width=\textwidth]{figure/microservice/avali17.png}
+			进货后库存增加
+		\end{minipage}
+		\caption{管理员进货成功与页面刷新结果}
+		\label{fig:appendix_restock_success}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.85\textwidth]{figure/microservice/getpodsit.png}
+		\caption{Kubernetes Pod 运行状态截图}
+		\label{fig:appendix_k8s_pods}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.85\textwidth]{figure/microservice/testitest.png}
+		\caption{库存服务和进货服务单元测试通过截图}
+		\label{fig:appendix_pytest}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.85\textwidth]{figure/ops/cluster-pods.png}
+		\caption{集群运行状态}
+		\label{fig:appendix_ops_cluster_pods}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.85\textwidth]{figure/ops/frontend-page.png}
+		\caption{Online Boutique 前端页面访问}
+		\label{fig:appendix_ops_frontend_page}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.85\textwidth]{figure/ops/grafana-node-exporter.png}
+		\caption{Grafana Node Exporter Full 仪表板}
+		\label{fig:appendix_ops_grafana_node_exporter}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.85\textwidth]{figure/ops/chaos-dashboard.png}
+		\caption{Chaos Mesh Dashboard}
+		\label{fig:appendix_ops_chaos_dashboard}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.85\textwidth]{figure/fluxev/original-csv.png}
+		\caption{OPS 原始 CSV 示例}
+		\label{fig:appendix_fluxev_original_csv}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.95\textwidth]{figure/fluxev/ops-manifest.png}
+		\caption{OPS 预处理结果 Manifest}
+		\label{fig:appendix_fluxev_ops_manifest}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\begin{subfigure}{0.32\textwidth}
+			\centering
+			\includegraphics[width=\textwidth]{figure/fluxev/kpi-result.png}
+			\caption{KPI}
+			\label{fig:appendix_fluxev_kpi_result}
+		\end{subfigure}
+		\hfill
+		\begin{subfigure}{0.32\textwidth}
+			\centering
+			\includegraphics[width=\textwidth]{figure/fluxev/yahoo-result.png}
+			\caption{Yahoo}
+			\label{fig:appendix_fluxev_yahoo_result}
+		\end{subfigure}
+		\hfill
+		\begin{subfigure}{0.32\textwidth}
+			\centering
+			\includegraphics[width=\textwidth]{figure/fluxev/ops-result.png}
+			\caption{OPS}
+			\label{fig:appendix_fluxev_ops_result}
+		\end{subfigure}
+		\caption{KPI、Yahoo 与 OPS 复现结果}
+		\label{fig:appendix_fluxev_reproduction_results}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.95\textwidth]{figure/fluxev/ops-individual-results.png}
+		\caption{OPS 逐指标结果示例}
+		\label{fig:appendix_fluxev_ops_individual_results}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.8\textwidth]{"./figure/LightLog/LogAnomaly/LogAnomalytrain.png"}
+		\caption{LogAnomaly训练曲线}
+		\label{fig:LogAnomalyTrain}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.8\textwidth]{"./figure/LightLog/LogRobust/training_curves.png"}
+		\caption{LogRobust训练曲线}
+		\label{fig:LogRobustTrain}
+	\end{figure}
+	
+	\begin{table}[htbp]
+		\centering
+		\caption{边界值分析及安全测试}
+		\label{tab:api_test_results}
+		\resizebox{\textwidth}{!}{%
+			\begin{tabular}{llrrrrrl}
+				\toprule
+				\textbf{测试用例} & \textbf{接口} & \textbf{样本数} & \textbf{错误数} & \textbf{错误率} & \textbf{平均响应时间} & \textbf{断言期望} & \textbf{测试类型} \\
+				\midrule
+				GET / - 正常 & GET / & 50 & 0 & 0\% & 74.56\,ms & 200 & 正常用例 \\
+				HEAD / - HEAD方法 & HEAD / & 50 & 0 & 0\% & 51.18\,ms & 200 & 方法测试 \\
+				GET / - 带SQL注入参数 & GET / & 50 & 50 & 100\% & 0\,ms & 500 & 安全测试 \\
+				TRACE / - 非法方法 & TRACE / & 50 & 50 & 100\% & 22.34\,ms & 405 & 方法测试 \\
+				GET /product/\{id\} - 有效ID1 & \texttto{GET /product/OLJCESPC7Z} & 50 & 0 & 0\% & 35.48\,ms & 200 & 正常用例 \\
+				GET /product/\{id\} - 有效ID2 & \texttto{GET /product/LS4PSXUNUM} & 50 & 0 & 0\% & 24.80\,ms & 200 & 正常用例 \\
+				GET /product/\{id\} - 不存在的ID & \texttto{GET /product/NONEXIST99} & 50 & 50 & 100\% & 24.82\,ms & 500 & 边界值 \\
+				GET /product/\{id\} - SQL注入ID & \texttto{GET /product/' OR '1'='1} & 50 & 50 & 100\% & 22.16\,ms & 500 & 安全测试 \\
+				GET /product/\{id\} - 超长ID & \texttto{GET /product/\{LONG\_STR\}} & 50 & 50 & 100\% & 3.50\,ms & 500 & 边界值 \\
+				GET /product/\{id\} - 负数ID & \texttto{GET /product/-1} & 50 & 50 & 100\% & 8.56\,ms & 500 & 边界值 \\
+				GET /product/\{id\} - XSS注入ID & \texttto{GET /product/}$<$\texttto{script}$>$\texttto{alert(1)}$<$/\texttto{script}$>$ & 50 & 50 & 100\% & 0\,ms & 500 & 安全测试 \\
+				GET /product-meta/\{ids\} - 有效ID & \texttto{GET /product-meta/OLJCESPC7Z} & 50 & 0 & 0\% & 49.02\,ms & 200 & 正常用例 \\
+				GET /product-meta/\{ids\} - SQL注入 & \texttto{GET /product-meta/' OR '1'='1} & 50 & 0 & 0\% & 27.36\,ms & 500 & 安全测试 \\
+				GET /product-meta/\{ids\} - 空ID & \texttto{GET /product-meta/} & 50 & 50 & 100\% & 46.80\,ms & 500 & 边界值 \\
+				GET /product-meta/\{ids\} - XSS注入 & \texttto{GET /product-meta/}$<$\texttto{script}$>$\texttto{alert(1)}$<$/\texttto{script}$>$ & 50 & 50 & 100\% & 0\,ms & 500 & 安全测试 \\
+				GET /cart - 正常 & GET /cart & 50 & 0 & 0\% & 56.52\,ms & 200 & 正常用例 \\
+				HEAD /cart - HEAD方法 & HEAD /cart & 50 & 0 & 0\% & 36.36\,ms & 200 & 方法测试 \\
+				POST /cart - 正常添加 & POST /cart & 50 & 0 & 0\% & 20.16\,ms & 200 & 正常用例 \\
+				POST /cart - 缺少product\_id & POST /cart & 50 & 50 & 100\% & 1.96\,ms & 400 & 参数校验 \\
+				POST /cart - 缺少quantity & POST /cart & 50 & 50 & 100\% & 1.84\,ms & 400 & 参数校验 \\
+				POST /cart - 空body & POST /cart & 50 & 50 & 100\% & 1.92\,ms & 400 & 参数校验 \\
+				POST /cart - SQL注入product\_id & POST /cart & 50 & 50 & 100\% & 2.70\,ms & 400 & 安全测试 \\
+				POST /cart - quantity负数 & POST /cart & 50 & 50 & 100\% & 1.84\,ms & 400 & 边界值 \\
+				POST /cart - quantity=0 & POST /cart & 50 & 50 & 100\% & 1.68\,ms & 400 & 边界值 \\
+				POST /cart - quantity超大值 & POST /cart & 50 & 50 & 100\% & 1.88\,ms & 400 & 边界值 \\
+				POST /cart - quantity非数字 & POST /cart & 50 & 50 & 100\% & 1.78\,ms & 400 & 边界值 \\
+				POST /cart/empty - 正常 & POST /cart/empty & 50 & 0 & 0\% & 50.74\,ms & 200 & 正常用例 \\
+				GET /cart/empty - 错误方法 & GET /cart/empty & 50 & 50 & 100\% & 27.44\,ms & 405 & 方法测试 \\
+				POST /cart/checkout - 完整正常 & POST /cart/checkout & 50 & 50 & 100\% & 16.62\,ms & 200 & 正常用例(功能失败) \\
+				POST /cart/checkout - 空body & POST /cart/checkout & 50 & 50 & 100\% & 2.04\,ms & 400 & 参数校验 \\
+				POST /cart/checkout - 无效email格式 & POST /cart/checkout & 50 & 50 & 100\% & 1.68\,ms & 400 & 数据校验 \\
+				POST /cart/checkout - XSS注入email & POST /cart/checkout & 50 & 50 & 100\% & 1.58\,ms & 400 & 安全测试 \\
+				POST /cart/checkout - zip\_code非数字 & POST /cart/checkout & 50 & 50 & 100\% & 1.86\,ms & 400 & 数据校验 \\
+				POST /cart/checkout - 缺少email & POST /cart/checkout & 50 & 50 & 100\% & 2.10\,ms & 400 & 参数校验 \\
+				POST /cart/checkout - 缺少信用卡号 & POST /cart/checkout & 50 & 50 & 100\% & 1.92\,ms & 400 & 参数校验 \\
+				POST /cart/checkout - 已过期信用卡 & POST /cart/checkout & 50 & 50 & 100\% & 1.78\,ms & 400 & 数据校验 \\
+				GET /\_healthz - 正常 & GET /\_healthz & 50 & 0 & 0\% & 69.32\,ms & 200 & 正常用例 \\
+				HEAD /\_healthz - HEAD方法 & HEAD /\_healthz & 50 & 0 & 0\% & 41.42\,ms & 200 & 方法测试 \\
+				POST /\_healthz - 错误方法 & POST /\_healthz & 50 & 0 & 0\% & 30.74\,ms & 405 & 方法测试 \\
+				GET /robots.txt - 正常 & GET /robots.txt & 50 & 0 & 0\% & 52.14\,ms & 200 & 正常用例 \\
+				GET /assistant - 正常 & GET /assistant & 50 & 0 & 0\% & 51.66\,ms & 200 & 正常用例 \\
+				GET /logout - 正常 & GET /logout & 50 & 0 & 0\% & 51.88\,ms & 200 & 正常用例 \\
+				POST /setCurrency - USD & POST /setCurrency & 50 & 0 & 0\% & 5.10\,ms & 200 & 正常用例 \\
+				POST /setCurrency - EUR & POST /setCurrency & 50 & 0 & 0\% & 2.02\,ms & 200 & 正常用例 \\
+				POST /setCurrency - JPY & POST /setCurrency & 50 & 0 & 0\% & 1.74\,ms & 200 & 正常用例 \\
+				POST /setCurrency - 无效货币RMB & POST /setCurrency & 50 & 50 & 100\% & 1.72\,ms & 400 & 数据校验 \\
+				POST /setCurrency - 缺少currency\_code & POST /setCurrency & 50 & 50 & 100\% & 2.10\,ms & 400 & 参数校验 \\
+				POST /setCurrency - SQL注入 & POST /setCurrency & 50 & 50 & 100\% & 2.72\,ms & 400 & 安全测试 \\
+				POST /setCurrency - XSS注入 & POST /setCurrency & 50 & 50 & 100\% & 1.72\,ms & 400 & 安全测试 \\
+				POST /bot - 正常JSON & POST /bot & 50 & 50 & 100\% & 2,494.80\,ms & 200 & 正常用例(超时) \\
+				POST /bot - 无效JSON & POST /bot & 50 & 50 & 100\% & 4,131.90\,ms & 400 & 数据校验 \\
+				POST /bot - 空body & POST /bot & 50 & 50 & 100\% & 4,032.72\,ms & 400 & 参数校验 \\
+				POST /bot - XSS JSON & POST /bot & 50 & 50 & 100\% & 4,106.78\,ms & 400 & 安全测试 \\
+				GET /static/ - 正常(根) & GET /static/ & 50 & 0 & 0\% & 66.06\,ms & 200 & 正常用例 \\
+				GET /static/ - 不存在的文件 & GET /static/nonexistent.css & 50 & 50 & 100\% & 28.68\,ms & 404 & 边界值 \\
+				GET /static/ - 路径穿越-0 & GET /static/../ & 50 & 0 & 0\% & 37.40\,ms & 404 & 安全测试 \\
+				GET /static/ - 路径穿越-1 & GET /static/../../ & 50 & 50 & 100\% & 46.72\,ms & 404 & 安全测试 \\
+				GET /static/ - 路径穿越 & GET /static/../../../etc/passwd & 50 & 50 & 100\% & 84.26\,ms & 404 & 安全测试 \\
+				\bottomrule
+			\end{tabular}%
+		}
+	\end{table}
+	
+	\begin{table}[htbp]
+		\centering
+		\caption{JMeter 压测脚本选型推荐}
+		\label{tab:jmeter_script_recommendation}
+		\resizebox{\textwidth}{!}{%
+			\begin{tabular}{lll}
+				\toprule
+				\textbf{测试类型} & \textbf{推荐脚本} & \textbf{推荐理由} \\
+				\midrule
+				\textbf{HTTP 全链路功能验证} & jmeter-all-apis & 覆盖浏览、下单、辅助三大场景，含 Cookie 和缓存管理，适合功能正确性验证 \\
+				\textbf{HTTP 轻量级回归测试} & jmeter-online-boutique & 线程数适中(100)，含响应断言，适合 CI/CD 流水线中的回归测试 \\
+				\textbf{gRPC 后端服务验证} & jmeter-grpc-backend & 覆盖 CartService、ProductCatalogService、下单链路，适合后端服务上线前验证 \\
+				\textbf{gRPC 极限压力测试} & jmeter-grpc-extreme & 500线程并行，无思考时间，适合发现系统瓶颈和容量上限 \\
+				\textbf{HTTP 单接口极限测试} & jmeter-product-stress & 200线程专注商品接口，适合分析特定接口的性能极限 \\
+				\textbf{gRPC Checkout+Currency 依赖链} & jmeter-checkout-currency & 800线程，专注 Checkout→Currency 依赖链，适合验证服务间调用稳定性 \\
+				\textbf{gRPC 推荐/邮件服务极限} & jmeter-rec-email & 800线程，适合测试推荐和邮件服务的极限处理能力 \\
+				\textbf{边界值/安全测试} & test-http-all-easyerror & 58个边界测试用例，覆盖 SQL注入、XSS、路径穿越、非法参数等 \\
+				\textbf{长时间稳定性测试} & test-http-infinity & 无限循环模式，适合 7×24 稳定性测试（需手动停止,在本项目中用来收集日志） \\
+				\bottomrule
+			\end{tabular}%
+		}
+	\end{table}
+	
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.8\textwidth]{"./figure/agent/dashboard.png"}
+		\caption{运维智能体集群概览页面截图}
+		\label{fig:dashboard}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.8\textwidth]{"./figure/agent/chat.png"}
+		\caption{运维智能体智能对话页面截图}
+		\label{fig:chat}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.8\textwidth]{"./figure/agent/history.png"}
+		\caption{运维智能体历史记录页面截图}
+		\label{fig:history}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.8\textwidth]{"./figure/agent/performance_analysis.png"}
+		\caption{运维智能体性能分析页面截图}
+		\label{fig:performance_analysis}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.8\textwidth]{"./figure/agent/settings.png"}
+		\caption{运维智能体系统配置页面截图}
+		\label{fig:settings}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.8\textwidth]{"./figure/agent/exception_report1.png"}
+		\caption{运维智能体异常分析报告-异常信息概览部分截图}
+		\label{fig:exception_report1}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.8\textwidth]{"./figure/agent/exception_report2.png"}
+		\caption{运维智能体异常分析报告-根因分析部分截图}
+		\label{fig:exception_report2}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.8\textwidth]{"./figure/agent/exception_report3.png"}
+		\caption{运维智能体异常分析报告-故障恢复建议部分截图}
+		\label{fig:exception_report3}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.8\textwidth]{"./figure/agent/exception_report4.png"}
+		\caption{运维智能体异常分析报告-风险提醒部分截图}
+		\label{fig:exception_report4}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.8\textwidth]{"./figure/agent/performance_analysis1.png"}
+		\caption{运维智能体性能分析报告-基本信息及摘要部分截图}
+		\label{fig:performance_analysis1}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.8\textwidth]{"./figure/agent/performance_analysis2.png"}
+		\caption{运维智能体性能分析报告-集群性能指标部分截图}
+		\label{fig:performance_analysis2}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.8\textwidth]{"./figure/agent/performance_analysis3.png"}
+		\caption{运维智能体性能分析报告-性能瓶颈分析部分截图}
+		\label{fig:performance_analysis3}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.8\textwidth]{"./figure/agent/performance_analysis4.png"}
+		\caption{运维智能体性能分析报告-业务活动分析部分截图}
+		\label{fig:performance_analysis4}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centering
+		\includegraphics[width=0.8\textwidth]{"./figure/agent/performance_analysis5.png"}
+		\caption{运维智能体性能分析报告-优化建议部分截图}
+		\label{fig:performance_analysis5}
+	\end{figure}
+\end{appendices}
 \label{sec:appendix_microservice_figures}
 
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.85\textwidth]{figure/microservice/service_metrics.png}
-	\caption{inventoryservice 监控指标截图}
-	\label{fig:appendix_service_metrics}
-\end{figure}
 
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.85\textwidth]{figure/microservice/watch.png}
-	\caption{商品详情页库存展示截图}
-	\label{fig:appendix_inventory_watch}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\begin{minipage}{0.45\textwidth}
-		\centering
-		\includegraphics[width=\textwidth]{figure/microservice/beforeenter.png}
-		加入购物车前
-	\end{minipage}
-	\hfill
-	\begin{minipage}{0.45\textwidth}
-		\centering
-		\includegraphics[width=\textwidth]{figure/microservice/buyit.png}
-		选择购买数量
-	\end{minipage}
-	\caption{库存扣减前的商品状态}
-	\label{fig:appendix_inventory_before}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\begin{minipage}{0.45\textwidth}
-		\centering
-		\includegraphics[width=\textwidth]{figure/microservice/afterjoinit.png}
-		加入购物车后库存减少
-	\end{minipage}
-	\hfill
-	\begin{minipage}{0.45\textwidth}
-		\centering
-		\includegraphics[width=\textwidth]{figure/microservice/emptyit.png}
-		清空购物车
-	\end{minipage}
-	\caption{加入购物车与清空购物车操作过程}
-	\label{fig:appendix_inventory_cart}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.85\textwidth]{figure/microservice/afteremptyit.png}
-	\caption{清空购物车后库存回滚截图}
-	\label{fig:appendix_inventory_after_empty}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\begin{minipage}{0.45\textwidth}
-		\centering
-		\includegraphics[width=\textwidth]{figure/microservice/inventoryadmin.png}
-		管理员进货页面
-	\end{minipage}
-	\hfill
-	\begin{minipage}{0.45\textwidth}
-		\centering
-		\includegraphics[width=\textwidth]{figure/microservice/inventory10.png}
-		输入进货数量
-	\end{minipage}
-	\caption{管理员进货操作页面}
-	\label{fig:appendix_restock_page}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\begin{minipage}{0.45\textwidth}
-		\centering
-		\includegraphics[width=\textwidth]{figure/microservice/respondins.png}
-		进货成功弹窗
-	\end{minipage}
-	\hfill
-	\begin{minipage}{0.45\textwidth}
-		\centering
-		\includegraphics[width=\textwidth]{figure/microservice/avali17.png}
-		进货后库存增加
-	\end{minipage}
-	\caption{管理员进货成功与页面刷新结果}
-	\label{fig:appendix_restock_success}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.85\textwidth]{figure/microservice/getpodsit.png}
-	\caption{Kubernetes Pod 运行状态截图}
-	\label{fig:appendix_k8s_pods}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.85\textwidth]{figure/microservice/testitest.png}
-	\caption{库存服务和进货服务单元测试通过截图}
-	\label{fig:appendix_pytest}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.85\textwidth]{figure/ops/cluster-pods.png}
-	\caption{集群运行状态}
-	\label{fig:appendix_ops_cluster_pods}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.85\textwidth]{figure/ops/frontend-page.png}
-	\caption{Online Boutique 前端页面访问}
-	\label{fig:appendix_ops_frontend_page}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.85\textwidth]{figure/ops/grafana-node-exporter.png}
-	\caption{Grafana Node Exporter Full 仪表板}
-	\label{fig:appendix_ops_grafana_node_exporter}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.85\textwidth]{figure/ops/chaos-dashboard.png}
-	\caption{Chaos Mesh Dashboard}
-	\label{fig:appendix_ops_chaos_dashboard}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.85\textwidth]{figure/fluxev/original-csv.png}
-	\caption{OPS 原始 CSV 示例}
-	\label{fig:appendix_fluxev_original_csv}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.95\textwidth]{figure/fluxev/ops-manifest.png}
-	\caption{OPS 预处理结果 Manifest}
-	\label{fig:appendix_fluxev_ops_manifest}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\begin{subfigure}{0.32\textwidth}
-		\centering
-		\includegraphics[width=\textwidth]{figure/fluxev/kpi-result.png}
-		\caption{KPI}
-		\label{fig:appendix_fluxev_kpi_result}
-	\end{subfigure}
-	\hfill
-	\begin{subfigure}{0.32\textwidth}
-		\centering
-		\includegraphics[width=\textwidth]{figure/fluxev/yahoo-result.png}
-		\caption{Yahoo}
-		\label{fig:appendix_fluxev_yahoo_result}
-	\end{subfigure}
-	\hfill
-	\begin{subfigure}{0.32\textwidth}
-		\centering
-		\includegraphics[width=\textwidth]{figure/fluxev/ops-result.png}
-		\caption{OPS}
-		\label{fig:appendix_fluxev_ops_result}
-	\end{subfigure}
-	\caption{KPI、Yahoo 与 OPS 复现结果}
-	\label{fig:appendix_fluxev_reproduction_results}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.95\textwidth]{figure/fluxev/ops-individual-results.png}
-	\caption{OPS 逐指标结果示例}
-	\label{fig:appendix_fluxev_ops_individual_results}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.8\textwidth]{"./figure/LightLog/LogAnomaly/LogAnomalytrain.png"}
-	\caption{LogAnomaly训练曲线}
-	\label{fig:LogAnomalyTrain}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.8\textwidth]{"./figure/LightLog/LogRobust/training_curves.png"}
-	\caption{LogRobust训练曲线}
-	\label{fig:LogRobustTrain}
-\end{figure}
-
-\begin{table}[htbp]
-	\centering
-	\caption{边界值分析及安全测试}
-	\label{tab:api_test_results}
-	\resizebox{\textwidth}{!}{%
-		\begin{tabular}{llrrrrrl}
-			\toprule
-			\textbf{测试用例} & \textbf{接口} & \textbf{样本数} & \textbf{错误数} & \textbf{错误率} & \textbf{平均响应时间} & \textbf{断言期望} & \textbf{测试类型} \\
-			\midrule
-			GET / - 正常 & GET / & 50 & 0 & 0\% & 74.56\,ms & 200 & 正常用例 \\
-			HEAD / - HEAD方法 & HEAD / & 50 & 0 & 0\% & 51.18\,ms & 200 & 方法测试 \\
-			GET / - 带SQL注入参数 & GET / & 50 & 50 & 100\% & 0\,ms & 500 & 安全测试 \\
-			TRACE / - 非法方法 & TRACE / & 50 & 50 & 100\% & 22.34\,ms & 405 & 方法测试 \\
-			GET /product/\{id\} - 有效ID1 & \texttto{GET /product/OLJCESPC7Z} & 50 & 0 & 0\% & 35.48\,ms & 200 & 正常用例 \\
-			GET /product/\{id\} - 有效ID2 & \texttto{GET /product/LS4PSXUNUM} & 50 & 0 & 0\% & 24.80\,ms & 200 & 正常用例 \\
-			GET /product/\{id\} - 不存在的ID & \texttto{GET /product/NONEXIST99} & 50 & 50 & 100\% & 24.82\,ms & 500 & 边界值 \\
-			GET /product/\{id\} - SQL注入ID & \texttto{GET /product/' OR '1'='1} & 50 & 50 & 100\% & 22.16\,ms & 500 & 安全测试 \\
-			GET /product/\{id\} - 超长ID & \texttto{GET /product/\{LONG\_STR\}} & 50 & 50 & 100\% & 3.50\,ms & 500 & 边界值 \\
-			GET /product/\{id\} - 负数ID & \texttto{GET /product/-1} & 50 & 50 & 100\% & 8.56\,ms & 500 & 边界值 \\
-			GET /product/\{id\} - XSS注入ID & \texttto{GET /product/}$<$\texttto{script}$>$\texttto{alert(1)}$<$/\texttto{script}$>$ & 50 & 50 & 100\% & 0\,ms & 500 & 安全测试 \\
-			GET /product-meta/\{ids\} - 有效ID & \texttto{GET /product-meta/OLJCESPC7Z} & 50 & 0 & 0\% & 49.02\,ms & 200 & 正常用例 \\
-			GET /product-meta/\{ids\} - SQL注入 & \texttto{GET /product-meta/' OR '1'='1} & 50 & 0 & 0\% & 27.36\,ms & 500 & 安全测试 \\
-			GET /product-meta/\{ids\} - 空ID & \texttto{GET /product-meta/} & 50 & 50 & 100\% & 46.80\,ms & 500 & 边界值 \\
-			GET /product-meta/\{ids\} - XSS注入 & \texttto{GET /product-meta/}$<$\texttto{script}$>$\texttto{alert(1)}$<$/\texttto{script}$>$ & 50 & 50 & 100\% & 0\,ms & 500 & 安全测试 \\
-			GET /cart - 正常 & GET /cart & 50 & 0 & 0\% & 56.52\,ms & 200 & 正常用例 \\
-			HEAD /cart - HEAD方法 & HEAD /cart & 50 & 0 & 0\% & 36.36\,ms & 200 & 方法测试 \\
-			POST /cart - 正常添加 & POST /cart & 50 & 0 & 0\% & 20.16\,ms & 200 & 正常用例 \\
-			POST /cart - 缺少product\_id & POST /cart & 50 & 50 & 100\% & 1.96\,ms & 400 & 参数校验 \\
-			POST /cart - 缺少quantity & POST /cart & 50 & 50 & 100\% & 1.84\,ms & 400 & 参数校验 \\
-			POST /cart - 空body & POST /cart & 50 & 50 & 100\% & 1.92\,ms & 400 & 参数校验 \\
-			POST /cart - SQL注入product\_id & POST /cart & 50 & 50 & 100\% & 2.70\,ms & 400 & 安全测试 \\
-			POST /cart - quantity负数 & POST /cart & 50 & 50 & 100\% & 1.84\,ms & 400 & 边界值 \\
-			POST /cart - quantity=0 & POST /cart & 50 & 50 & 100\% & 1.68\,ms & 400 & 边界值 \\
-			POST /cart - quantity超大值 & POST /cart & 50 & 50 & 100\% & 1.88\,ms & 400 & 边界值 \\
-			POST /cart - quantity非数字 & POST /cart & 50 & 50 & 100\% & 1.78\,ms & 400 & 边界值 \\
-			POST /cart/empty - 正常 & POST /cart/empty & 50 & 0 & 0\% & 50.74\,ms & 200 & 正常用例 \\
-			GET /cart/empty - 错误方法 & GET /cart/empty & 50 & 50 & 100\% & 27.44\,ms & 405 & 方法测试 \\
-			POST /cart/checkout - 完整正常 & POST /cart/checkout & 50 & 50 & 100\% & 16.62\,ms & 200 & 正常用例(功能失败) \\
-			POST /cart/checkout - 空body & POST /cart/checkout & 50 & 50 & 100\% & 2.04\,ms & 400 & 参数校验 \\
-			POST /cart/checkout - 无效email格式 & POST /cart/checkout & 50 & 50 & 100\% & 1.68\,ms & 400 & 数据校验 \\
-			POST /cart/checkout - XSS注入email & POST /cart/checkout & 50 & 50 & 100\% & 1.58\,ms & 400 & 安全测试 \\
-			POST /cart/checkout - zip\_code非数字 & POST /cart/checkout & 50 & 50 & 100\% & 1.86\,ms & 400 & 数据校验 \\
-			POST /cart/checkout - 缺少email & POST /cart/checkout & 50 & 50 & 100\% & 2.10\,ms & 400 & 参数校验 \\
-			POST /cart/checkout - 缺少信用卡号 & POST /cart/checkout & 50 & 50 & 100\% & 1.92\,ms & 400 & 参数校验 \\
-			POST /cart/checkout - 已过期信用卡 & POST /cart/checkout & 50 & 50 & 100\% & 1.78\,ms & 400 & 数据校验 \\
-			GET /\_healthz - 正常 & GET /\_healthz & 50 & 0 & 0\% & 69.32\,ms & 200 & 正常用例 \\
-			HEAD /\_healthz - HEAD方法 & HEAD /\_healthz & 50 & 0 & 0\% & 41.42\,ms & 200 & 方法测试 \\
-			POST /\_healthz - 错误方法 & POST /\_healthz & 50 & 0 & 0\% & 30.74\,ms & 405 & 方法测试 \\
-			GET /robots.txt - 正常 & GET /robots.txt & 50 & 0 & 0\% & 52.14\,ms & 200 & 正常用例 \\
-			GET /assistant - 正常 & GET /assistant & 50 & 0 & 0\% & 51.66\,ms & 200 & 正常用例 \\
-			GET /logout - 正常 & GET /logout & 50 & 0 & 0\% & 51.88\,ms & 200 & 正常用例 \\
-			POST /setCurrency - USD & POST /setCurrency & 50 & 0 & 0\% & 5.10\,ms & 200 & 正常用例 \\
-			POST /setCurrency - EUR & POST /setCurrency & 50 & 0 & 0\% & 2.02\,ms & 200 & 正常用例 \\
-			POST /setCurrency - JPY & POST /setCurrency & 50 & 0 & 0\% & 1.74\,ms & 200 & 正常用例 \\
-			POST /setCurrency - 无效货币RMB & POST /setCurrency & 50 & 50 & 100\% & 1.72\,ms & 400 & 数据校验 \\
-			POST /setCurrency - 缺少currency\_code & POST /setCurrency & 50 & 50 & 100\% & 2.10\,ms & 400 & 参数校验 \\
-			POST /setCurrency - SQL注入 & POST /setCurrency & 50 & 50 & 100\% & 2.72\,ms & 400 & 安全测试 \\
-			POST /setCurrency - XSS注入 & POST /setCurrency & 50 & 50 & 100\% & 1.72\,ms & 400 & 安全测试 \\
-			POST /bot - 正常JSON & POST /bot & 50 & 50 & 100\% & 2,494.80\,ms & 200 & 正常用例(超时) \\
-			POST /bot - 无效JSON & POST /bot & 50 & 50 & 100\% & 4,131.90\,ms & 400 & 数据校验 \\
-			POST /bot - 空body & POST /bot & 50 & 50 & 100\% & 4,032.72\,ms & 400 & 参数校验 \\
-			POST /bot - XSS JSON & POST /bot & 50 & 50 & 100\% & 4,106.78\,ms & 400 & 安全测试 \\
-			GET /static/ - 正常(根) & GET /static/ & 50 & 0 & 0\% & 66.06\,ms & 200 & 正常用例 \\
-			GET /static/ - 不存在的文件 & GET /static/nonexistent.css & 50 & 50 & 100\% & 28.68\,ms & 404 & 边界值 \\
-			GET /static/ - 路径穿越-0 & GET /static/../ & 50 & 0 & 0\% & 37.40\,ms & 404 & 安全测试 \\
-			GET /static/ - 路径穿越-1 & GET /static/../../ & 50 & 50 & 100\% & 46.72\,ms & 404 & 安全测试 \\
-			GET /static/ - 路径穿越 & GET /static/../../../etc/passwd & 50 & 50 & 100\% & 84.26\,ms & 404 & 安全测试 \\
-			\bottomrule
-		\end{tabular}%
-	}
-\end{table}
-
-\begin{table}[htbp]
-	\centering
-	\caption{JMeter 压测脚本选型推荐}
-	\label{tab:jmeter_script_recommendation}
-	\resizebox{\textwidth}{!}{%
-		\begin{tabular}{lll}
-			\toprule
-			\textbf{测试类型} & \textbf{推荐脚本} & \textbf{推荐理由} \\
-			\midrule
-			\textbf{HTTP 全链路功能验证} & jmeter-all-apis & 覆盖浏览、下单、辅助三大场景，含 Cookie 和缓存管理，适合功能正确性验证 \\
-			\textbf{HTTP 轻量级回归测试} & jmeter-online-boutique & 线程数适中(100)，含响应断言，适合 CI/CD 流水线中的回归测试 \\
-			\textbf{gRPC 后端服务验证} & jmeter-grpc-backend & 覆盖 CartService、ProductCatalogService、下单链路，适合后端服务上线前验证 \\
-			\textbf{gRPC 极限压力测试} & jmeter-grpc-extreme & 500线程并行，无思考时间，适合发现系统瓶颈和容量上限 \\
-			\textbf{HTTP 单接口极限测试} & jmeter-product-stress & 200线程专注商品接口，适合分析特定接口的性能极限 \\
-			\textbf{gRPC Checkout+Currency 依赖链} & jmeter-checkout-currency & 800线程，专注 Checkout→Currency 依赖链，适合验证服务间调用稳定性 \\
-			\textbf{gRPC 推荐/邮件服务极限} & jmeter-rec-email & 800线程，适合测试推荐和邮件服务的极限处理能力 \\
-			\textbf{边界值/安全测试} & test-http-all-easyerror & 58个边界测试用例，覆盖 SQL注入、XSS、路径穿越、非法参数等 \\
-			\textbf{长时间稳定性测试} & test-http-infinity & 无限循环模式，适合 7×24 稳定性测试（需手动停止,在本项目中用来收集日志） \\
-			\bottomrule
-		\end{tabular}%
-	}
-\end{table}
-
-\subsection*{运维智能体相关截图}
-\label{sec:appendix_agent_figures}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.8\textwidth]{"./figure/agent/dashboard.png"}
-	\caption{运维智能体集群概览页面截图}
-	\label{fig:dashboard}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.8\textwidth]{"./figure/agent/chat.png"}
-	\caption{运维智能体智能对话页面截图}
-	\label{fig:chat}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.8\textwidth]{"./figure/agent/history.png"}
-	\caption{运维智能体历史记录页面截图}
-	\label{fig:history}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.8\textwidth]{"./figure/agent/performance_analysis.png"}
-	\caption{运维智能体性能分析页面截图}
-	\label{fig:performance_analysis}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.8\textwidth]{"./figure/agent/settings.png"}
-	\caption{运维智能体系统配置页面截图}
-	\label{fig:settings}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.8\textwidth]{"./figure/agent/exception_report1.png"}
-	\caption{运维智能体异常分析报告-异常信息概览部分截图}
-	\label{fig:exception_report1}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.8\textwidth]{"./figure/agent/exception_report2.png"}
-	\caption{运维智能体异常分析报告-根因分析部分截图}
-	\label{fig:exception_report2}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.8\textwidth]{"./figure/agent/exception_report3.png"}
-	\caption{运维智能体异常分析报告-故障恢复建议部分截图}
-	\label{fig:exception_report3}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.8\textwidth]{"./figure/agent/exception_report4.png"}
-	\caption{运维智能体异常分析报告-风险提醒部分截图}
-	\label{fig:exception_report4}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.8\textwidth]{"./figure/agent/performance_analysis1.png"}
-	\caption{运维智能体性能分析报告-基本信息及摘要部分截图}
-	\label{fig:performance_analysis1}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.8\textwidth]{"./figure/agent/performance_analysis2.png"}
-	\caption{运维智能体性能分析报告-集群性能指标部分截图}
-	\label{fig:performance_analysis2}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.8\textwidth]{"./figure/agent/performance_analysis3.png"}
-	\caption{运维智能体性能分析报告-性能瓶颈分析部分截图}
-	\label{fig:performance_analysis3}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.8\textwidth]{"./figure/agent/performance_analysis4.png"}
-	\caption{运维智能体性能分析报告-业务活动分析部分截图}
-	\label{fig:performance_analysis4}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.8\textwidth]{"./figure/agent/performance_analysis5.png"}
-	\caption{运维智能体性能分析报告-优化建议部分截图}
-	\label{fig:performance_analysis5}
-\end{figure}
 
 \end{spacing}
 
