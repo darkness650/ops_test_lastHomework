@@ -743,11 +743,185 @@ grpc压测设置为500线程压测，其错误率高可能是因为某个微服�
 
 \subsection*{LightLog复现}
 
+\subsubsection*{论文介绍}
+LightLog\cite{wang2022lightlog} 论文提出了一种面向边缘设备的轻量级日志异常检测方法，旨在解决现有深度学习方法（如 DeepLog、LogAnomaly）计算量大、难以在资源受限的边缘设备上实时部署的问题。该方法从两个维度实现轻量化：首先，在数据预处理阶段，采用 Word2Vec 将日志模板转换为 300 维语义向量，再通过 PCA-PPA（Post-Processing Algorithm）降维至 20 维，在保留语义信息的同时大幅减少存储和计算开销；其次，设计了一种增强型时序卷积网络（TCN），通过因果卷积保证时序正确性，通过扩张卷积（d=1,2,4,8）在不增加参数的前提下扩大感受野，并在残差块中引入多核卷积（kernel=2,3,4）和 Pointwise 卷积来提升精度并压缩参数。
+
+\subsubsection*{论文主要框架}
+LightLog\cite{wang2022lightlog} 从非结构化日志到异常检测的完整流程包含四个核心步骤：
+
+\paragraph{步骤1：日志解析}
+使用 FT-Tree 将非结构化日志解析为结构化模板。
+\begin{center}
+\verb|"Interface ae1 changed state to up at 2024-01-01 10:00:00"| \\
+$\downarrow$ \\
+\verb|"Interface <*> changed state to up at <TIME>"|
+\end{center}
+
+\paragraph{步骤2：Word2Vec 向量化}
+将日志模板转换为 300 维语义向量，捕捉模板间的语义关系。
+
+\paragraph{步骤3：PCA-PPA 降维}
+将 300 维语义向量降维至 20 维，适配边缘设备。论文中原始 300 维向量需要 0.46M 内存，降维后能大幅压缩，实现降维不降精度。
+\begin{center}
+300维 $\rightarrow$ 20维
+\end{center}
+
+\paragraph{步骤4：优化后的 TCN（核心）}
+针对时序日志预测，设计了四项优化（下面进行详细介绍）：
+\begin{itemize}
+\item 因果卷积（Causal Convolution）
+\item 扩张卷积（Dilated Convolution）
+\item 增强残差块（Enhanced Residual Block）
+\item 全局平均池化（Global Average Pooling, GAP）
+\end{itemize}
+
+\subsubsection{优化后的 TCN：四大核心改进}
+
+LightLog 在传统 TCN 基础上引入了四项关键优化，在保证高检测精度的同时大幅降低了模型参数量和计算复杂度，使其能够高效部署于资源受限的边缘设备。
+
+\begin{enumerate}
+\item \textbf{因果卷积（Causal Convolution）}
+    
+因果卷积是 TCN 的基础组件，其核心思想是保证模型在预测当前时刻的输出时，只能依赖于当前及之前时刻的输入信息，而不能“看到”未来的数据。这一特性对于时序建模至关重要，避免了未来信息泄露导致的不合理预测。
+\begin{itemize}
+\item 传统卷积：[L1, L2, L3, L4, L5] $\rightarrow$ 预测 L3 看到 L4, L5，这在时序任务中是不合理的。
+\item 因果卷积：[L1, L2, L3] $\rightarrow$ 预测 L4 只看 L1-L3，保证了时序预测的合理性。
+\end{itemize}
+
+\item \textbf{扩张卷积（Dilated Convolution）}
+    
+扩张卷积通过在卷积核元素之间插入空洞（即跳过部分输入）来扩大感受野，使得模型能够捕捉更长距离的时序依赖关系，同时不增加额外的参数量。LightLog 中设置扩张率 $d = 1, 2, 4, 8$，卷积核大小 $k = 3$。
+\begin{itemize}
+\item $d=1$：感受野为 3，对应相邻的 3 个日志 [L1, L2, L3]；
+\item $d=2$：感受野为 6，采样位置为 [L1, L3, L5]（每隔 2 个取一个）；
+\item $d=4$：感受野为 12，采样位置为 [L1, L5, L9]（每隔 4 个取一个）。
+\end{itemize}
+通过堆叠不同扩张率的卷积层，TCN 能够在参数不增加的情况下获得指数级扩大的感受野，有效捕捉日志序列中的长程模式。
+
+\item \textbf{增强残差块（Enhanced Residual Block）}
+    
+残差结构通过跳跃连接（skip connection）将输入直接加到输出上，有效缓解了深层网络训练中的梯度消失问题。LightLog 在此基础上对残差块进行了两项增强：
+\begin{itemize}
+\item \textit{多核卷积}：在残差块内并行使用多个不同尺寸的卷积核（kernel size = 2, 3, 4），从不同尺度提取日志序列的特征模式，丰富低层特征表示，显著提升检测精度；
+\item \textit{Pointwise 卷积}：采用 $1 \times 1$ 卷积对多核输出的特征通道进行融合，在保持特征表达能力的同时大幅减少参数量，实现模型轻量化。
+\end{itemize}
+
+\item \textbf{全局平均池化（Global Average Pooling, GAP）}
+    
+传统 CNN 通常在末端使用 Flatten 操作将特征图展平后接入全连接层进行分类，这会导致参数量急剧增加。LightLog 采用全局平均池化替代 Flatten，对每个特征通道的所有时间步取平均值，将输出维度从 $T \times C$ 压缩至 $C$，大幅减少了后续全连接层的参数量，同时有效降低了过拟合风险，提升了模型的泛化能力。
+\end{enumerate}
+
+\subsubsection*{训练过程}
+以LightLog在自建数据集上的训练过程为例，训练过程种Loss和Accuracy如下图所示
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.90\textwidth]{figure/LightLog/LightLog/训练过程.jpg}
+	\caption{训练过程}
+	\label{fig:ops_stress_test}
+\end{figure}
+\textbf{训练分析:}训练集和验证集的损失值（Loss）均呈快速下降趋势，并在约20个周期后趋于平稳，未出现明显过拟合迹象；同时，训练集与验证集的准确率（Accuracy）均稳步上升，最终均收敛于接近1.0的高位，且两者之间差距较小。这一过程表明LightLog模型在自建数据集上具有良好的收敛性与泛化能力。
+
+
+\subsubsection{复现结果}
+我们使用了LightLog\cite{wang2022lightlog}论文中提到的HDFS数据集和我们的自建数据集上进行了复现，日志异常检测本质上是一个对日志序列进行二元分类的过程，其分类结果可分为TP, TN, FP, FN四种类型，与LightLog论文一样，我们同样使用精确率（Precision）、召回率（Recall）以及 F1 分数（F1-Score）作为检测效果的评价指标
+
+\hspace{3em}
+\vspace{1em}
+Precision = $\frac{TP}{TP + FP}$
+
+\hspace{3em}
+\vspace{1em}
+Recall = $\frac{TP}{TP + FN}$
+
+\hspace{3em}
+\vspace{1em}
+F1 = $2 \times \frac{Precision \times Recall}{Precision + Recall}$
+
+我们在HDFS数据集上的复现结果所下图所示
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.80\textwidth]{figure/LightLog/LightLog/HDFS测试结果.png}
+	\caption{HDFS数据集复现结果}
+	\label{fig:ops_stress_test}
+\end{figure}
+复现结果与原论文相似，验证了LightLog方法在HDFS数据集上的有效性。
+
+我们在自建数据集上的复现结果所下图所示
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.80\textwidth]{figure/LightLog/LightLog/自建集复现结果.jpg}
+	\caption{自建数据集复现结果}
+	\label{fig:ops_stress_test}
+\end{figure}
+复现结果表明LightLog方法在我们自建数据集上同样具有较高的检测精度。
+
+\textbf{结论:}LightLog 模型在公开 HDFS 与自收集两类数据集上均取得优异性能，验证了其在日志异常检测任务中的高精度与泛化性。
+
 \subsection*{LightLog消融实验}
+为了严谨地验证所提出改进方案的有效性，并探究TCN中各组件对模型性能的具体贡献，我们进行了消融实验，一共设计了五个TCN变体，
+逐一验证LightLog模型中各个核心改进模块对最终性能的实际贡献
+
+消融实验的基本原理是，以最基础的TCN为基线，在保持数据、训练策略和其他超参数不变的前提下，依次将上述模块“叠加”到网络中，构成一系列结构递进的变体。通过对比相邻变体在相同测试集上的精确率、召回率、参数量和推理速度等指标，就能定量分析出每个模块独立带来的增益，5种设计变体及实验结果如下所示：
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.90\textwidth]{figure/LightLog/LightLog/消融实验设计.jpg}
+	\caption{消融实验设计}
+	\label{fig:ops_stress_test}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.90\textwidth]{figure/LightLog/LightLog/消融实验结果.jpg}
+	\caption{消融实验结果}
+	\label{fig:ops_stress_test}
+\end{figure}
+
+\textbf{消融结论}
+通过上述消融实验，可以得出以下三点主要结论：
+
+\begin{enumerate}
+\item \textbf{PCA-PPA 降维不降精度} 
+
+对比 \texttt{TCN} 与 \texttt{TCN\_PCA-PPA} 可知，在引入 PCA-PPA 降维后，模型参数量与模型大小均显著下降（参数量从 45,394 降至 27,474），而 F1 分数基本保持不变（从 0.9820 提升至 0.9822）。这表明 PCA-PPA 能够在保持检测精度的同时有效压缩模型规模。
+
+\item \textbf{Pointwise Conv 大幅降低计算量} 
+
+对比 \texttt{TCN\_3Kernels} 与 \texttt{TCN\_3Kernels+PWConv} 可知，引入 Pointwise 卷积后，训练时间从 779.9 秒大幅缩短至 377.2 秒。这充分验证了 Pointwise 卷积在减少模型计算开销方面的有效性。
+
+\item \textbf{整体轻量化设计有效} 
+
+最终，\texttt{Proposed TCN} 相较于基线 \texttt{TCN}，在参数量减少约 67\% 的同时，F1 分数反而从 0.9820 提升至 0.9833。这一结果充分证明了 LightLog 整体轻量化设计的有效性，即通过各组件的协同优化，能够在显著压缩模型规模的同时，保持甚至提升异常检测的性能。
+\end{enumerate}
 
 \subsection*{LogAnomaly与LogRobust的复现及对比实验}
 
 \subsubsection{LogAnomaly复现}
+我们阅读了LogAnomaly\cite{meng2019loganomaly}并对其进行了复现,下面介绍LogAnomaly论文的基本原理
+
+LogAnomaly 是一个基于深度学习的日志异常检测框架，其核心思想是将日志流建模为自然语言序列，通过提取日志模板的语义信息来实现异常检测。整个处理流程主要包含以下四个步骤：
+
+\textbf{1.日志解析：} 首先采用 FT-Tree 算法将非结构化的原始日志解析为结构化的日志模板，例如将 "Interface ae1 changed state to up at 2024-01-01 10:00:00" 解析为 "Interface <*> changed state to up at <TIME>"。这是后续语义分析的基础。
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.90\textwidth]{figure/LightLog/LightLog/Examples of template2Vec.jpg}
+	\caption{template2Vec方法示例}
+	\label{fig:ops_stress_test}
+\end{figure}
+\textbf{2.模板向量化：} 提出 template2Vec 方法，基于同义词和反义词集合，利用 dLCE 词嵌入模型为每个模板生成语义向量，从而将日志流转化为向量序列。相比仅使用模板索引的传统方法，该方式能够有效捕捉模板之间的语义关联，减少因模板表面差异导致的误报。
+
+\textbf{3.双模式学习：} 使用两层 LSTM 网络同时学习日志的两种模式：
+\begin{itemize}
+\item \textit{顺序模式（Sequential Pattern）}：学习模板向量的时序依赖关系，预测下一个可能出现的模板；
+\item \textit{定量模式（Quantitative Pattern）}：学习滑动窗口内各类模板的计数不变关系，如文件中 "打开" 与 "关闭" 操作的数量应保持平衡。
+\end{itemize}
+
+\textbf{4.在线检测：} 系统将实时日志匹配到已有模板，若遇到新模板则通过计算其临时模板向量与已有模板向量的相似度进行近似匹配。基于训练好的 LSTM 模型，结合顺序与定量两种模式的预测结果，综合判定日志序列是否异常。
+
+LogAnomaly 通过引入语义信息并同时检测两类异常，有效解决了传统方法中仅依赖模板索引带来的误报问题。
+
+在附录中我们提供了LogAnomaly的训练曲线作为参考\ref{fig:LogAnomalyTrain}。
+有关LogAnomaly复现的代码存放在项目仓库中LightLog下的LogAnomaly文件夹下
 
 \subsubsection{LogRobust复现}
 
@@ -783,7 +957,11 @@ grpc压测设置为500线程压测，其错误率高可能是因为某个微服�
 在附录中我们提供了LogRobust的训练曲线作为参考\ref{fig:LogRobustTrain}。有关LogRobust复现的代码存放在项目仓库中LightLog下的LogRobust文件夹下
 
 
-\subsubsection{对比实验结果及分析}
+\subsubsection{对比实验及结果分析}
+
+为了全面评估所提出的 LightLog 模型在实际部署中的实用价值，我们不仅关注其检测精度，还从模型规模和测试效率两个方面进行了对比实验。在边缘计算场景中，设备通常具有有限的计算资源和存储空间，因此，模型的参数量、模型体积以及推理速度是衡量其能否落地应用的关键指标。
+
+故本文将 LightLog 与当前主流的日志异常检测方法——即基于 LSTM 的 LogAnomaly 和 LogRobust——进行对比，旨在验证 LightLog 在轻量化设计和实时处理能力上的优势，在自建数据集上的测试结果如下所示
 \begin{table}[htbp]
 	\centering
 	\caption{模型规模与测试效率对比}
@@ -798,7 +976,32 @@ grpc压测设置为500线程压测，其错误率高可能是因为某个微服�
 		\bottomrule
 	\end{tabular}
 \end{table}
+
+在参数量方面，LightLog仅为8,050个参数，相比LogAnomaly的251,298个参数降低了约96.8\%，相比LogRobust的585,991个参数降低了约98.6\%。这一显著差异主要源于LightLog采用了轻量化的时序卷积网络设计，通过点卷积和全局平均池化替代了全连接层，极大地减少了网络参数。而LogAnomaly和LogRobust均基于LSTM等循环神经网络架构，其门控机制和循环连接结构天然具有较多的参数。
+
+在模型大小方面，LightLog仅为82.99 KB，而LogAnomaly和LogRobust分别高达986.36 KB和2,292.36 KB。LightLog的模型体积相比LogAnomaly缩小了约91.6\%，相比LogRobust缩小了约96.4\%。这一优势使得LightLog能够轻松部署于存储资源有限的边缘设备中。
+
+在测试效率方面，LightLog处理单个测试样本的平均时间仅为5.15秒，远低于LogAnomaly的20.94秒和LogRobust的119.90秒。LightLog的测试速度相比LogAnomaly提升了约4倍，相比LogRobust提升了约23倍。这主要归功于TCN的并行计算能力——卷积操作可在各时间步上并行执行，而LSTM的循环依赖特性限制了其并行度，导致推理速度较慢。
+
+\vspace{1em}
+同时，为了验证LightLog在保持轻量化的同时是否能够保持高检测精度，我们还对三种模型在自建数据集上的检测性能进行了对比，结果如下所示：
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.80\textwidth]{figure/LightLog/LightLog/四篇对比.png}
+	\caption{检测性能对比分析}
+	\label{fig:ops_stress_test}
+\end{figure}
+在精确率（Precision）方面，LightLog 达到 0.9918，相比 LogAnomaly 的 0.9610 提升了约 3.2\%，相比 LogRobust 的 0.9772 提升了约 1.5\%，表明 LightLog 在预测异常时具有极低的误报率。这得益于 LightLog 采用 PCA-PPA 降维方法，有效去除了日志语义向量中的噪声和冗余信息，使得模型能够更准确地识别真正的异常模式。
+
+在召回率（Recall）方面，LightLog 达到 0.9753，高于 LogAnomaly 的 0.9652 和 LogRobust 的 0.9643，表明 LightLog 能够检测出更多的真实异常，具有较低的漏报率。这主要归功于 LightLog 采用的时序卷积网络能够有效捕获日志序列中的长程依赖关系，从而更全面地识别异常行为模式。
+
+在综合指标 F1-score 方面，LightLog 达到 0.9835，相比 LogAnomaly 的 0.9631 提升了约 2.1\%，相比 LogRobust 的 0.9707 提升了约 1.3\%。这一结果表明，LightLog 在精确率与召回率之间取得了更好的平衡，整体检测性能优于两种基于 LSTM 的基线方法。
+
+综上所述，LightLog在保持轻量化的基础上，仍能在 Precision、Recall 和 F1-score 三项指标上均优于 LogAnomaly 和 LogRobust，验证了本文提出的基于 TCN 和 PCA-PPA 降维的轻量化模型在日志异常检测任务中的有效性和优越性。
+
 \section{智能体运维}
+
+
 通过这次实验记录自己在本次实验中所遇到的问题，以及心得感悟即相关问题和解决方法。如果遇到异常情况，或者无法完成任务时，也请分析错误产生的原因。
 
 \section{总结与展望}
@@ -1005,6 +1208,13 @@ Jia Li, Shimin Di, Yanyan Shen, and Lei Chen.
 	\includegraphics[width=0.95\textwidth]{figure/fluxev/ops-individual-results.png}
 	\caption{OPS 逐指标结果示例}
 	\label{fig:appendix_fluxev_ops_individual_results}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{"./figure/LightLog/LogAnomaly/LogAnomalytrain.png"}
+	\caption{LogAnomaly训练曲线}
+	\label{fig:LogAnomalyTrain}
 \end{figure}
 
 \begin{figure}[htbp]
