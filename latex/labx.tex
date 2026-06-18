@@ -2,15 +2,20 @@
 \documentclass[a4paper,12pt]{report}
 \usepackage{indentfirst} 
 \usepackage{ctex}
-%\usepackage{xeCJK}
+% \usepackage{xeCJK}
 \usepackage{times}
 \usepackage{graphicx,float}
 \usepackage{subcaption}
+\usepackage{booktabs}   % 三线表（\toprule, \midrule, \bottomrule）
+\usepackage{array}      % 增强表格列格式（可选）
+\usepackage{multirow}   % 合并单元格（可选）
+\usepackage{threeparttable} % 带注释的表格（可选）
 \usepackage{setspace}
 \usepackage{fancyhdr}
 % \usepackage{graphicx}
 \usepackage{wrapfig}
 \usepackage{array}
+\usepackage{seqsplit}
 \usepackage{fontspec,xunicode,xltxtra}
 \usepackage{titlesec}
 \usepackage{titletoc}
@@ -18,10 +23,33 @@
 \usepackage[top=30mm,bottom=30mm,left=20mm,right=20mm]{geometry}
 \usepackage{cite}
 \usepackage{listings}
-\usepackage{hyperref}
-\usepackage[framed,numbered,autolinebreaks,useliterate]{mcode} % 插入代码
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
 \XeTeXlinebreaklocale "zh"
 \XeTeXlinebreakskip = 0pt plus 1pt minus 0.1pt
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize\linespread{1.1}\selectfont, % 设置代码字体、大小及行距
+  keywordstyle=\color{blue}, % 关键字颜色
+  commentstyle=\color{gray}, % 注释颜色
+  stringstyle=\color[rgb]{0,0.6,0}, % 字符串颜色
+  numbers=left, % 行号显示在左侧
+  numberstyle=\tiny\color{gray}, % 行号样式
+  stepnumber=1, % 行号间隔
+  frame=single, % 代码框
+  breaklines=true, % 自动换行
+  tabsize=4, % Tab 键宽度
+  showstringspaces=false % 不显示字符串中的空格
+}
+
+% 西文字体：显式设置，避免触发 ptm
+\setmainfont{Times New Roman} % 或 Times New Roman
+\setsansfont{Arial} % 或 TeX Gyre Heros / Helvetica
+\setmonofont{Consolas} % 或 TeX Gyre Cursor / Courier New
+
+% 创建允许换行的 \texttt 版本
+\newcommand{\texttto}[1]{\texttt{\seqsplit{#1}}}
 
 %---------------------------------------------------------------------
 %	页眉页脚设置
@@ -77,7 +105,6 @@
 %---------------------------------------------------------------------
 \begin{titlepage}
 	\begin{center}
-		
     \includegraphics[width=1.0\textwidth]{figure//nankai.jpg}\\
     % \vspace{10mm}
     % \textbf{\zihao{2}\kaishu{软件学院}}\\[0.8cm]
@@ -178,15 +205,13 @@ JMeter 分别完成系统功能自动化测试与性能压力测试，用采集�
 
 项目源码仓库链接：\url{https://github.com/darkness650/ops_test_lastHomework.git}
 
-本报告各部分由相应分工部分同学完成
-
 \section{微服务系统介绍和开发}
 
 本部分工作基于 Google Cloud 的 Online Boutique 微服务示例系统进行扩展。原系统已经具备商品浏览、购物车、结算、推荐、广告、支付、邮件、配送等典型电商功能，能够体现多语言、多服务协同工作的微服务架构特点。但是，原项目的商品购买流程并没有真正维护库存状态：用户可以反复加入商品，系统不会判断剩余库存是否足够；清空购物车也不会恢复库存；管理员也没有独立的进货入口。因此，本次开发选择围绕“库存管理”和“进货管理”补充业务能力，在原有系统上新增两个微服务，并对前端服务进行集成改造。
 
 \subsection*{原系统结构}
 
-Online Boutique 原始系统以 \texttt{frontend} 作为用户入口，浏览器和压测程序都通过 HTTP 访问前端服务，再由前端服务调用内部微服务完成页面展示和业务处理。原系统中，\texttt{productcatalogservice} 负责商品数据，\texttt{cartservice} 负责购物车，\texttt{checkoutservice} 负责结算编排，\texttt{currencyservice}、\texttt{paymentservice}、\texttt{shippingservice}、\texttt{emailservice} 等服务分别承担货币换算、支付、配送和邮件通知等职责。整体结构如图 \ref{fig:origin_microservice_arch} 所示。
+Online Boutique 原始系统以 \texttto{frontend} 作为用户入口，浏览器和压测程序都通过 HTTP 访问前端服务，再由前端服务调用内部微服务完成页面展示和业务处理。原系统中，\texttto{productcatalogservice} 负责商品数据，\texttto{cartservice} 负责购物车，\texttto{checkoutservice} 负责结算编排，\texttto{currencyservice}、\texttto{paymentservice}、\texttto{shippingservice}、\texttto{emailservice} 等服务分别承担货币换算、支付、配送和邮件通知等职责。整体结构如图 \ref{fig:origin_microservice_arch} 所示。
 
 \begin{figure}[H]
 	\centering
@@ -199,7 +224,7 @@ Online Boutique 原始系统以 \texttt{frontend} 作为用户入口，浏览器
 
 \subsection*{新增微服务设计}
 
-本次开发新增了两个微服务：\texttt{inventoryservice} 和 \texttt{restockservice}。\texttt{inventoryservice} 是库存服务，负责维护每个商品的剩余库存、库存状态和仓库位置，并提供查询、预留、释放等能力；\texttt{restockservice} 是进货服务，作为管理员补货操作的后端入口，负责校验服务间调用凭证，并调用库存服务完成库存增加。扩展后的架构如图 \ref{fig:new_microservice_arch} 所示。
+本次开发新增了两个微服务：\texttto{inventoryservice} 和 \texttto{restockservice}。\texttto{inventoryservice} 是库存服务，负责维护每个商品的剩余库存、库存状态和仓库位置，并提供查询、预留、释放等能力；\texttto{restockservice} 是进货服务，作为管理员补货操作的后端入口，负责校验服务间调用凭证，并调用库存服务完成库存增加。扩展后的架构如图 \ref{fig:new_microservice_arch} 所示。
 
 \begin{figure}[H]
 	\centering
@@ -208,11 +233,11 @@ Online Boutique 原始系统以 \texttt{frontend} 作为用户入口，浏览器
 	\label{fig:new_microservice_arch}
 \end{figure}
 
-扩展后系统形成了两条主要业务链路。第一条是普通用户购物链路：用户进入商品详情页时，\texttt{frontend} 调用 \texttt{inventoryservice} 查询当前库存，并在页面上展示剩余数量；用户加入购物车时，前端先请求库存服务预留库存，成功后再写入 \texttt{cartservice}；如果购物车写入失败，前端会调用库存服务释放刚才预留的库存，避免库存凭空减少；用户清空购物车时，系统也会把购物车中已有商品数量释放回库存。第二条是管理员进货链路：管理员访问独立的 \texttt{/admin/restock} 页面，登录成功后选择商品并输入进货数量，前端携带内部 API Token 调用 \texttt{restockservice}，再由进货服务调用库存服务增加库存。
+扩展后系统形成了两条主要业务链路。第一条是普通用户购物链路：用户进入商品详情页时，\texttto{frontend} 调用 \texttto{inventoryservice} 查询当前库存，并在页面上展示剩余数量；用户加入购物车时，前端先请求库存服务预留库存，成功后再写入 \texttto{cartservice}；如果购物车写入失败，前端会调用库存服务释放刚才预留的库存，避免库存凭空减少；用户清空购物车时，系统也会把购物车中已有商品数量释放回库存。第二条是管理员进货链路：管理员访问独立的 \texttto{/admin/restock} 页面，登录成功后选择商品并输入进货数量，前端携带内部 API Token 调用 \texttto{restockservice}，再由进货服务调用库存服务增加库存。
 
 \subsection*{库存服务实现概述}
 
-\texttt{inventoryservice} 使用 Python 实现，核心职责是管理商品库存状态。服务启动时读取初始库存数据，并以商品 ID 为键保存库存数量、库存状态和仓库信息。库存状态根据剩余数量自动判断：库存为 0 时为缺货，库存较少时为低库存，其余情况为正常库存。这样前端不仅能显示“还剩多少件”，也能显示当前商品是否处于低库存或缺货状态。
+\texttto{inventoryservice} 使用 Python 实现，核心职责是管理商品库存状态。服务启动时读取初始库存数据，并以商品 ID 为键保存库存数量、库存状态和仓库信息。库存状态根据剩余数量自动判断：库存为 0 时为缺货，库存较少时为低库存，其余情况为正常库存。这样前端不仅能显示“还剩多少件”，也能显示当前商品是否处于低库存或缺货状态。
 
 库存服务提供三类核心接口。第一类是库存查询接口，用于商品详情页和管理员页面读取库存；第二类是库存预留接口，用于用户加入购物车时扣减库存；第三类是库存释放接口，用于购物车写入失败、清空购物车和管理员进货等场景。库存服务内部对库存变更操作加锁，避免并发请求同时修改同一份库存数据导致数量错误。服务还提供健康检查和 metrics 指标，便于 Kubernetes 探针和后续监控系统判断服务状态。
 
@@ -220,23 +245,23 @@ Online Boutique 原始系统以 \texttt{frontend} 作为用户入口，浏览器
 
 \subsection*{进货服务实现概述}
 
-\texttt{restockservice} 同样使用 Python 实现，它不直接保存库存，而是承担管理员进货入口的角色。这样拆分的原因是普通用户购买商品和管理员补充库存属于不同业务角色，如果把进货逻辑混在商品详情页或购物车逻辑中，会让用户流程和管理流程混杂在一起，也不利于后续权限控制、进货记录、供应商管理等功能扩展。
+\texttto{restockservice} 同样使用 Python 实现，它不直接保存库存，而是承担管理员进货入口的角色。这样拆分的原因是普通用户购买商品和管理员补充库存属于不同业务角色，如果把进货逻辑混在商品详情页或购物车逻辑中，会让用户流程和管理流程混杂在一起，也不利于后续权限控制、进货记录、供应商管理等功能扩展。
 
-进货流程采用两层保护。第一层是前端管理员登录，管理员需要使用账号密码进入 \texttt{/admin/restock} 页面；第二层是服务间 API Token，只有携带正确 Token 的前端请求才能调用进货服务。这样的设计区分了“浏览器访问权限”和“服务间调用权限”：前者保护管理员页面，后者保护进货接口本身。
+进货流程采用两层保护。第一层是前端管理员登录，管理员需要使用账号密码进入 \texttto{/admin/restock} 页面；第二层是服务间 API Token，只有携带正确 Token 的前端请求才能调用进货服务。这样的设计区分了“浏览器访问权限”和“服务间调用权限”：前者保护管理员页面，后者保护进货接口本身。
 
-当管理员提交进货数量后，\texttt{frontend} 会向 \texttt{restockservice} 发送请求；进货服务校验 Token 和参数后，再调用 \texttt{inventoryservice} 更新库存。操作成功后，页面显示进货成功弹窗，管理员点击确认后刷新页面，从而看到更新后的库存数量。相关界面和操作效果截图放在附录 \ref{sec:appendix_microservice_figures} 中。
+当管理员提交进货数量后，\texttto{frontend} 会向 \texttto{restockservice} 发送请求；进货服务校验 Token 和参数后，再调用 \texttto{inventoryservice} 更新库存。操作成功后，页面显示进货成功弹窗，管理员点击确认后刷新页面，从而看到更新后的库存数量。相关界面和操作效果截图放在附录 \ref{sec:appendix_microservice_figures} 中。
 
 \subsection*{前端集成改造}
 
-原 \texttt{frontend} 服务使用 Go 实现，是用户访问系统的统一入口。本次开发在前端中增加了库存查询、库存预留、库存释放和管理员进货页面的调用逻辑。普通用户打开商品详情页时，页面会展示该商品的剩余库存、库存状态和仓库位置；商品数量选择框会根据库存动态限制最大可选数量，避免页面上直接选择超过库存的数量。
+原 \texttto{frontend} 服务使用 Go 实现，是用户访问系统的统一入口。本次开发在前端中增加了库存查询、库存预留、库存释放和管理员进货页面的调用逻辑。普通用户打开商品详情页时，页面会展示该商品的剩余库存、库存状态和仓库位置；商品数量选择框会根据库存动态限制最大可选数量，避免页面上直接选择超过库存的数量。
 
 加入购物车时，前端不再直接写入购物车，而是先向库存服务申请预留库存。只有库存预留成功后，才继续调用购物车服务。如果购物车服务写入失败，前端会立即释放库存，完成一次简单的补偿操作。清空购物车时，前端先读取购物车内容，再调用购物车服务清空，最后把购物车中原有商品数量逐项释放回库存。通过这些改造，系统实现了“加入购物车扣减库存、清空购物车恢复库存、库存不足拒绝加入”的基本闭环。
 
-管理员页面则被设计为独立模块，而不是放在普通商品购买流程中。管理员访问 \texttt{/admin/restock} 后先看到登录页面，登录成功后进入进货页面。页面列出商品、当前库存和进货输入框，管理员提交后由前端调用进货服务。这样既保持了普通用户页面的简洁，也让管理操作有清晰的入口和权限边界。
+管理员页面则被设计为独立模块，而不是放在普通商品购买流程中。管理员访问 \texttto{/admin/restock} 后先看到登录页面，登录成功后进入进货页面。页面列出商品、当前库存和进货输入框，管理员提交后由前端调用进货服务。这样既保持了普通用户页面的简洁，也让管理操作有清晰的入口和权限边界。
 
 \subsection*{部署与测试}
 
-两个新增服务都补充了 Dockerfile、Kubernetes Deployment 和 Service 配置，并加入到 skaffold 构建流程中。\texttt{frontend} 通过环境变量读取库存服务和进货服务地址，例如 \texttt{INVENTORY\_SERVICE\_URL} 和 \texttt{RESTOCK\_SERVICE\_URL}。在 Kubernetes 中，服务之间不使用 \texttt{localhost} 通信，而是通过 Service 名称进行访问，例如 \texttt{inventoryservice} 和 \texttt{restockservice}。这样可以适应 Pod 动态创建和销毁的环境。
+两个新增服务都补充了 Dockerfile、Kubernetes Deployment 和 Service 配置，并加入到 skaffold 构建流程中。\texttto{frontend} 通过环境变量读取库存服务和进货服务地址，例如 \texttto{INVENTORY\_SERVICE\_URL} 和 \texttto{RESTOCK\_SERVICE\_URL}。在 Kubernetes 中，服务之间不使用 \texttto{localhost} 通信，而是通过 Service 名称进行访问，例如 \texttto{inventoryservice} 和 \texttto{restockservice}。这样可以适应 Pod 动态创建和销毁的环境。
 
 测试方面，库存服务重点验证库存查询、库存预留、库存不足拒绝、库存释放和异常商品 ID 等场景；进货服务重点验证 Token 校验、参数校验、进货成功和依赖库存服务失败等场景。前端功能则通过手动操作验证：商品详情页能看到库存，加入购物车后库存减少，清空购物车后库存回滚，管理员登录后可以进货，进货成功后弹窗提示并刷新页面。测试截图和 Kubernetes 运行状态截图统一放在附录中。
 
@@ -245,10 +270,348 @@ Online Boutique 原始系统以 \texttt{frontend} 作为用户入口，浏览器
 本部分在 Online Boutique 原有系统基础上新增了库存服务和进货服务，并完成了前端集成、容器化部署和功能测试。库存服务让商品库存从静态页面信息变成独立业务状态，支持查询、扣减、释放和监控；进货服务将管理员补货从普通购买流程中拆分出来，并通过管理员登录和 API Token 进行保护。经过改造后，系统形成了较完整的库存业务闭环：用户购买会占用库存，取消购物车会恢复库存，库存不足会拒绝请求，管理员可以在独立页面补充库存。该过程体现了微服务系统中服务拆分、接口协作、状态一致性、服务发现和可测试性的基本思想。
 
 
-\section{部署 故障注入与监控 数据采集分析}
-该实验所使用的环境、工具 ...
+\section{部署、故障注入与监控、数据采集分析}
+本部分围绕 Online Boutique 微服务系统完成部署、监控体系搭建、故障注入和指标数据采集。实验流程从 Kubernetes 集群中运行微服务开始，随后部署 Prometheus、Grafana、Fluentd 和 Chaos Mesh，在可控故障窗口中采集节点与系统指标，最终为后续 FluxEV 时间序列异常检测复现提供 OPS 数据集。
 
-\section{fluxev论文复现}
+\subsection*{部署}
+
+本部分部署对象为基于 Google Online Boutique 扩展的微服务系统。项目在原有在线精品店业务基础上增加了库存管理和管理员进货相关功能，同时保留前端、购物车、商品目录、支付、结算、推荐、邮件、配送、广告、货币转换、Redis 购物车和负载生成器等典型微服务组件。系统部署文件位于 \texttto{ops/kubernetes-manifests.yaml}，使用 Kubernetes Deployment、Service 与 ServiceAccount 描述各服务实例和访问关系。
+
+\subsubsection{集群启动}
+
+实验环境使用 minikube 构建本地 Kubernetes 集群。考虑到微服务数量较多，同时还需要运行 Prometheus、Grafana、日志采集与 Chaos Mesh，启动集群时分配了 12 个 CPU 和约 7.6 GB 内存，并配置镜像加速地址以提高国内网络环境下的镜像拉取成功率。启动命令如下：
+
+\begin{lstlisting}[language=bash]
+minikube start \
+    --driver=docker \
+    --cpus=12 \
+    --memory=7605MB \
+    --image-mirror-country=cn \
+    --registry-mirror=https://docker.njdldkl666699.dpdns.org \
+    --registry-mirror=https://k8s.njdldkl666699.dpdns.org \
+    --registry-mirror=https://quay.njdldkl666699.dpdns.org
+\end{lstlisting}
+
+\subsubsection{微服务部署}
+
+集群启动后，首先进入 \texttto{ops/} 目录并应用微服务清单：
+
+\begin{lstlisting}[language=bash]
+cd ops
+kubectl apply -f kubernetes-manifests.yaml
+\end{lstlisting}
+
+该清单会创建 Online Boutique 相关服务和外部访问入口。集群中 Pod 的运行状态见附录图~\ref{fig:appendix_ops_cluster_pods}。其中 \texttto{frontend-external} 用于在 minikube 环境中暴露前端页面，可通过如下命令创建隧道并访问，访问效果见附录图~\ref{fig:appendix_ops_frontend_page}。
+
+\begin{lstlisting}[language=bash]
+minikube service frontend-external
+\end{lstlisting}
+
+\subsubsection{监控部署}
+
+监控部分采用 Prometheus + Grafana。Prometheus 负责采集 Kubernetes 集群和节点指标，Grafana 负责可视化展示。部署时使用 \texttto{kube-prometheus-stack} Helm Chart，并创建独立的 \texttto{monitoring} 命名空间：
+
+\begin{lstlisting}[language=bash]
+helm repo add prometheus-community "https://helm-charts.itboon.top/prometheus-community"
+helm repo update
+helm install prometheus prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace
+\end{lstlisting}
+
+Grafana 默认管理员密码以 Secret 形式保存在集群中，可通过如下命令解码：
+
+\begin{lstlisting}
+$secret = kubectl get secret prometheus-grafana -n monitoring -o jsonpath="{.data.admin-password}"
+$password = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($secret))
+Write-Host "Grafana admin password: $password"
+\end{lstlisting}
+
+Grafana 登录后导入 Node Exporter Full 仪表板，仪表板 ID 为 \texttto{1860}。该仪表板覆盖 CPU、内存、磁盘、网络、进程、系统负载等节点级指标，适合作为后续故障注入实验的统一监控视角，仪表板总览见附录图~\ref{fig:appendix_ops_grafana_node_exporter}。
+
+\subsubsection{日志采集与故障注入部署}
+
+日志采集部分使用 Fluentd。仓库中的 \texttto{ops/manifests-logging/} 包含 Fluentd 的 ServiceAccount、RBAC、ConfigMap、DaemonSet。部署命令如下：
+
+\begin{lstlisting}[language=bash]
+kubectl apply -f manifests-logging/
+\end{lstlisting}
+
+Chaos Mesh 用于故障注入实验。部署 Chaos Mesh 后，通过仓库内的 \texttto{rbac.yaml} 创建 Dashboard 访问所需权限，并生成 Token 登录 Web 控制台，Dashboard 页面见附录图~\ref{fig:appendix_ops_chaos_dashboard}。
+
+\begin{lstlisting}[language=bash]
+helm repo add chaos-mesh https://charts.chaos-mesh.org
+helm install chaos-mesh chaos-mesh/chaos-mesh --namespace chaos-testing --create-namespace
+kubectl apply -f rbac.yaml
+kubectl -n default create token account-cluster-manager-rqtnz
+minikube service chaos-dashboard -n chaos-testing
+\end{lstlisting}
+
+至此，实验平台由四层构成：业务微服务层、Kubernetes 编排层、Prometheus/Grafana/Fluentd/Kibana 可观测层，以及 Chaos Mesh 故障注入层。该结构既能验证服务在异常条件下的运行状态，也能为异常检测算法提供真实监控数据。
+
+\subsection*{故障注入与监控}
+
+故障注入实验使用 Chaos Mesh 完成，实验定义位于 \texttto{ops/chaos/} 目录。设计目标是模拟两类常见运维异常：一类是网络质量下降，另一类是计算与内存资源竞争。两种故障都作用于 \texttto{default} 命名空间中的全部目标 Pod，从而观察整个微服务系统在基础设施扰动下的指标变化。
+
+\subsubsection{网络丢包实验}
+
+第一类实验为网络丢包，配置文件为 \texttto{ops/chaos/network-loss.yaml}。该实验使用 \texttto{NetworkChaos}，动作为 \texttto{loss}，在 \texttto{to} 方向注入 50\% 丢包，持续 30 分钟：
+
+\begin{lstlisting}
+kind: NetworkChaos
+apiVersion: chaos-mesh.org/v1alpha1
+metadata:
+  namespace: default
+  name: network-loss
+spec:
+  selector:
+    namespaces:
+      - default
+  mode: all
+  action: loss
+  duration: 30m
+  loss:
+    loss: '50'
+    correlation: '0'
+  direction: to
+\end{lstlisting}
+
+实验创建时间为 2026-06-04 17:51:45 UTC+8，结束时间约为 18:21:45。该故障主要影响服务间调用、HTTP/gRPC 请求响应、网络吞吐、TCP 重传、连接状态和接口流量等指标。由于 Online Boutique 是多服务链路系统，网络丢包可能不会只体现在某一个服务上，而是沿调用链传播到前端响应时间、推荐、结算、购物车等业务请求。图~\ref{fig:ops_network_loss} 展示了网络丢包期间的监控曲线变化。
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.60\textwidth]{figure/ops/network-loss.png}
+	\caption{网络丢包实验影响}
+	\label{fig:ops_network_loss}
+\end{figure}
+
+\subsubsection{资源压力实验}
+
+第二类实验为资源压力，配置文件为 \texttto{ops/chaos/stress-test.yaml}。该实验使用 \texttto{StressChaos}，同时注入 CPU 与内存压力：CPU 侧启动 2 个 worker，内存侧启动 1 个 worker 并占用 25\% 内存，持续 30 分钟：
+
+\begin{lstlisting}
+kind: StressChaos
+apiVersion: chaos-mesh.org/v1alpha1
+metadata:
+  namespace: default
+  name: stress-test
+spec:
+  selector:
+    namespaces:
+      - default
+  mode: all
+  stressors:
+    memory:
+      workers: 1
+      size: 25%
+    cpu:
+      workers: 2
+  duration: 30m
+\end{lstlisting}
+
+实验创建时间为 2026-06-04 19:55:13 UTC+8，结束时间约为 20:25:13。该故障主要反映在 CPU user/system/softirq、CPU saturation、load、context switches、memory apps/cache/page table、pressure stall information、磁盘读写和进程状态等指标上。图~\ref{fig:ops_stress_test} 展示了资源压力期间的监控曲线变化。
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.60\textwidth]{figure/ops/stress-test.png}
+	\caption{资源压力实验影响}
+	\label{fig:ops_stress_test}
+\end{figure}
+
+\subsubsection{监控数据采集}
+
+监控数据来自 Grafana Node Exporter Full 仪表板导出的 CSV 文件，存放在 \texttto{ops/metrics/}。采集总时长约 6 小时，覆盖故障前、故障中、故障后的完整窗口。导出的指标目录如表~\ref{tab:ops_metrics_dirs} 所示。
+
+\begin{table}[htbp]
+	\centering
+	\caption{Grafana 导出指标目录说明}
+	\label{tab:ops_metrics_dirs}
+	\resizebox{\textwidth}{!}{%
+		\begin{tabular}{ll}
+			\toprule
+			\textbf{指标目录} & \textbf{内容说明} \\
+			\midrule
+			\texttto{CPU Memory Net Disk} & CPU、内存、网络流量、网络饱和、磁盘 IO、PSI 等综合指标 \\
+			\texttto{Memory Meminfo} / \texttto{Memory Vmstat} & 内核内存、页表、LRU、page fault、swap、OOM 等内存指标 \\
+			\texttto{Network Netstat} / \texttto{Network Sockstat} / \texttto{Network Traffic} & TCP/UDP/IP、socket、接口收发包与吞吐等网络指标 \\
+			\texttto{Node Exporter} & node exporter 自身采集耗时和进程资源 \\
+			\texttto{Storage Disk} & 磁盘吞吐、IOPS、平均等待时间、队列长度等 \\
+			\texttto{System Misc} / \texttto{System Processes} & 系统负载、上下文切换、中断、进程数、CPU per-core saturation 等 \\
+			\bottomrule
+		\end{tabular}%
+	}
+\end{table}
+
+这些 CSV 文件一方面用于人工观察故障影响，另一方面作为 OPS 自采集数据集的原始输入。与公开数据集相比，OPS 数据的价值在于它来自本次作业实际部署的微服务环境，故障窗口和注入方式是已知的，便于将运维实验和异常检测算法连接起来。
+
+从监控现象看，网络丢包实验更容易造成网络相关指标出现短时突变，例如接口流量、TCP 错误、连接状态和 socket 缓冲区变化；资源压力实验则在 CPU 饱和度、CPU softirq/system/user、PSI、磁盘读写吞吐、内存使用和系统负载上更明显。后续 OPS 预处理时也保留了这些波动较明显的指标，过滤掉部分几乎不变化的 veth 指标，减少无效序列对检测结果的干扰。两次实验的时间线如图~\ref{fig:ops_chaos_timeline} 所示。
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1.0\textwidth]{figure/ops/chaos-timeline.png}
+	\caption{OPS 故障注入时间线}
+	\label{fig:ops_chaos_timeline}
+\end{figure}
+
+\section{FluxEV 论文复现}
+
+\subsection*{论文介绍}
+
+FluxEV 全称为 ``FluxEV: A Fast and Effective Unsupervised Framework for Time-Series Anomaly Detection''，发表于 WSDM 2021\cite{li2021fluxev}。论文面向在线服务监控中的时间序列异常检测问题，强调两个现实约束：一是实际运维指标数量大、标签少，难以依赖监督学习；二是检测需要流式、快速、可持续更新，复杂模型的训练和推理成本不适合大规模监控场景。
+
+论文的出发点是 SPOT 虽然能够基于极值理论进行自动阈值检测，但直接应用在原始数值上时，只对全局分布中的极端值敏感。很多真实异常并不是绝对数值最大或最小，而是“不符合局部和周期规律的波动”。例如，一个业务指标在高峰期大幅波动可能是正常现象，而在低峰期出现同样幅度的波动反而可能是异常。因此，FluxEV 的核心思想是：先把时间序列中的异常波动转化为更容易被 SPOT 捕捉的极端特征，再用自动阈值完成无监督检测。
+
+\subsubsection{算法流程}
+
+FluxEV 框架主要包含四个步骤：
+
+\begin{enumerate}
+	\item 数据预处理。对时间戳缺失、缺失值和不同采样间隔进行处理，保证输入序列可以按固定时间间隔流式计算。
+	\item 波动提取。使用 EWMA 预测当前点的期望值，将当前值与预测值之间的误差作为局部波动。
+	\item 两步平滑。第一步顺序平滑用于削弱局部噪声，保留会显著改变窗口标准差的波动；第二步周期平滑用于比较相邻周期中相同时间槽附近的历史波动，从而消除正常周期模式的影响。
+	\item 自动阈值。对平滑后的波动特征应用 SPOT/POT，通过广义帕累托分布拟合尾部分布，并使用矩估计 MOM 替代 MLE 以提升参数估计效率。
+\end{enumerate}
+
+图~\ref{fig:fluxev_algorithm_flow} 展示了 FluxEV 从原始序列到异常判断的整体流程。
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\textwidth]{figure/fluxev/algorithm-flow.png}
+	\caption{FluxEV 算法流程}
+	\label{fig:fluxev_algorithm_flow}
+\end{figure}
+
+在输入输出形式上，FluxEV 的输入是一条或多条按时间排序的单变量时间序列，通常包含 \texttto{timestamp}、\texttto{value} 和可选 \texttto{label}。算法训练阶段只需要一段初始化数据来校准 SPOT 阈值，不依赖标签。输出是与测试时间点对应的 0/1 异常判断，其中 1 表示异常点。复现实验中，若数据集带有标签，则使用 F1、Recall、Precision 评价检测效果。具体算法步骤如图~\ref{fig:fluxev_algorithm_steps} 所示。
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.6\textwidth]{figure/fluxev/algorithm-steps.png}
+	\caption{FluxEV 具体算法步骤}
+	\label{fig:fluxev_algorithm_steps}
+\end{figure}
+
+\subsubsection{重构实现}
+
+本仓库中的重构实现位于 \texttto{FluxEV/fluxev/}。其中 \texttto{detector.py} 实现 EWMA、两步平滑与流式检测逻辑；\texttto{spot.py} 实现 SPOT、GPD 参数估计和 MOM/MLE 两种估计方式；\texttto{datasets.py} 封装 KPI、Yahoo 和 OPS 三类数据集运行流程；\texttto{preprocessing.py} 与 \texttto{ops\_preprocessing.py} 分别处理公开 KPI 数据和自采集 OPS 数据。
+
+\subsection*{数据预处理}
+
+本次复现使用三类数据：AIOps/KPI 数据集、Yahoo S5 benchmark 数据集，以及本项目自采集的 OPS 数据集。三类数据的来源和预处理方式不同，但最终都被整理为 FluxEV 可接受的单变量时间序列检测任务。
+
+\subsubsection{KPI 数据集}
+
+AIOps/KPI 数据集来自 AIOps Challenge，原始文件放置在：
+
+\begin{lstlisting}
+FluxEV/data/AIOps/phase2_train.csv
+FluxEV/data/AIOps/phase2_ground_truth.hdf
+\end{lstlisting}
+
+KPI 数据包含多条脱敏 KPI 曲线，每条曲线有时间戳、值、标签和 KPI ID。由于原始数据存在缺失点，预处理首先按最小时间间隔补全时间戳，并使用 \texttto{missing} 列标记补出的点；随后将训练集和测试集合并为 \texttto{total\_data.csv}，并用 \texttto{is\_test} 标识样本来源。缺失值填充支持线性插值和周期填充，本次默认使用周期填充，以尽量保留日周期或业务周期模式。运行命令如下：
+
+\begin{lstlisting}[language=bash]
+cd FluxEV
+uv run -m fluxev.cli preprocess-kpi
+\end{lstlisting}
+
+\subsubsection{Yahoo 数据集}
+
+Yahoo 数据集使用 Webscope S5 benchmark，包含 A1、A2、A3、A4 四组序列。其中 A1 是真实生产流量数据，A2、A3、A4 是人工合成或带有不同周期模式的序列。仓库中数据按如下结构组织：
+
+\begin{lstlisting}
+FluxEV/data/Yahoo/A1Benchmark/*.csv
+FluxEV/data/Yahoo/A2Benchmark/*.csv
+FluxEV/data/Yahoo/A3Benchmark/*.csv
+FluxEV/data/Yahoo/A4Benchmark/*.csv
+\end{lstlisting}
+
+Yahoo 各组字段名略有差异。实现中通过 \texttto{read\_yahoo\_data} 统一字段，将 \texttto{timestamp}/\texttto{timestamps}、\texttto{value}、\texttto{is\_anomaly}/\texttto{anomaly} 规范化为 \texttto{timestamp}、\texttto{value}、\texttto{label}。检测时默认使用序列前半段作为初始化数据；A2 组使用一阶平滑，其他组使用二阶平滑，周期参数按论文复现设置处理。
+
+\subsubsection{OPS 数据集}
+
+OPS 数据集来自本项目的运维实验。原始数据为 Grafana 导出的多指标 CSV，目录为 \texttto{ops/metrics/}，原始 CSV 示例见附录图~\ref{fig:appendix_fluxev_original_csv}。由于 Grafana 导出的 CSV 通常是一个文件包含多条指标曲线，不能直接作为 FluxEV 输入，因此 \texttto{ops\_preprocessing.py} 将其拆分为单指标序列，并写入：
+
+\begin{lstlisting}
+FluxEV/data/OPS/
+\end{lstlisting}
+
+OPS 预处理主要包括以下步骤：
+
+\begin{enumerate}
+	\item 按指标类型选择波动较明显、与故障相关的 CSV 文件，例如 CPU、Memory、Network Traffic、Network Saturation、Disk IO、PSI、System Processes、TCP Errors 等。
+	\item 解析 Grafana 中带单位的数值，例如 \%、\texttto{KB/s}、\texttto{MB}、\texttto{ms}、\texttto{ops/s} 等，并转换为统一的浮点数。
+	\item 将多指标 CSV 拆成单指标 CSV，输出字段包括 \texttto{timestamp}、\texttto{value}、\texttto{label} 和 \texttto{window\_label}。
+	\item 根据 Chaos Mesh 实验时间窗口生成粗粒度窗口标注 \texttto{window\_label}。
+	\item 用故障窗口外的数据计算正常基线 p01/p99，仅在对应实验窗口内将超出正常范围的点标为异常，生成 FluxEV 默认使用的点级 \texttto{label}。
+	\item 过滤人工确认几乎没有变化的 veth 网络指标，以及部分点级正样本为 0 的无效 Rx 指标。
+\end{enumerate}
+
+预处理命令如下：
+
+\begin{lstlisting}[language=bash]
+cd FluxEV
+uv run -m fluxev.cli preprocess-ops
+\end{lstlisting}
+
+预处理后生成 \texttto{manifest.csv}，记录每条输出指标对应的源文件、指标名、关联故障窗口、行数、点级异常数、窗口异常数和 p01/p99 基线，示例见附录图~\ref{fig:appendix_fluxev_ops_manifest}。当前 OPS 数据集共保留 77 条指标，其中 \texttto{CPU\_Memory\_Net\_Disk} 60 条，\texttto{System\_Processes} 13 条，\texttto{Network\_Netstat} 3 条，\texttto{Network\_Sockstat} 1 条。每条序列约 690 个采样点，能够覆盖两次 30 分钟故障实验及其前后状态。
+
+\subsection*{论文结果复现}
+
+\subsubsection{参数介绍与复现运行}
+
+复现实验统一通过 \texttto{FluxEV/fluxev/cli.py} 运行。常用参数包括 \texttto{--dataset} 选择数据集，\texttto{--estimator} 选择 SPOT 参数估计方式，\texttto{--s\_w} 设置连续窗口大小，\texttto{--p\_w} 设置周期窗口大小，\texttto{--half\_d\_w} 设置漂移处理半窗口大小，\texttto{--q} 设置风险系数。默认复现使用 MOM 估计，窗口参数为 \texttto{s=10}、\texttto{p=5}、\texttto{d=2}。KPI 和 OPS 使用 \texttto{q=0.003}，Yahoo 使用 \texttto{q=0.001}。
+
+运行 AIOps/KPI 数据集：
+
+\begin{lstlisting}[language=bash]
+cd FluxEV
+uv run -m fluxev.cli --dataset KPI
+\end{lstlisting}
+
+KPI 复现终端结果见附录图~\ref{fig:appendix_fluxev_kpi_result}。运行 Yahoo 数据集：
+
+\begin{lstlisting}[language=bash]
+cd FluxEV
+uv run -m fluxev.cli --dataset Yahoo
+\end{lstlisting}
+
+Yahoo 复现终端结果见附录图~\ref{fig:appendix_fluxev_yahoo_result}。运行 OPS 自采集数据集：
+
+\begin{lstlisting}[language=bash]
+cd FluxEV
+uv run -m fluxev.cli --dataset OPS
+\end{lstlisting}
+
+OPS 复现终端结果见附录图~\ref{fig:appendix_fluxev_ops_result}。
+
+评价指标为 F1、Recall 和 Precision。对于 KPI 和 Yahoo，评估时采用延迟容忍策略：如果检测结果在异常窗口开始后的容忍范围内命中，则将该异常段视为检测成功。这一策略与 AIOps KPI 异常检测常用评估方法一致，能够减少微小检测延迟对 F1 的过度惩罚。OPS 数据同样使用该评估函数，但训练长度默认取每条指标第一个点级异常之前的数据；如果某条指标没有点级异常，则使用序列一半作为初始化数据。
+
+\subsubsection{结果分析}
+
+本仓库复现得到的结果如表~\ref{tab:fluxev_results} 所示。
+
+\begin{table}[htbp]
+	\centering
+	\caption{FluxEV 复现实验结果}
+	\label{tab:fluxev_results}
+	\resizebox{\textwidth}{!}{%
+		\begin{tabular}{lrrrl}
+			\toprule
+			\textbf{数据集} & \textbf{F1} & \textbf{Recall} & \textbf{Precision} & \textbf{结果文件} \\
+			\midrule
+			AIOps/KPI & 0.7970 & 0.7319 & 0.8749 & \texttto{FluxEV/data/AIOps/results/MOM-s10-p5-d2-q0.003.txt} \\
+			Yahoo & 0.6397 & 0.6320 & 0.6476 & \texttto{FluxEV/data/Yahoo/MOM-s10-p5-d2-q0.001.txt} \\
+			OPS & 0.7849 & 0.7106 & 0.8765 & \texttto{FluxEV/data/OPS/results/MOM-s10-p5-d2-q0.003.txt} \\
+			\bottomrule
+		\end{tabular}%
+	}
+\end{table}
+
+论文中 FluxEV-MOM 在 KPI 上的 F1 约为 0.790，在 Yahoo 上的 F1 约为 0.666。与论文结果相比，本次 KPI 复现 F1 为 0.7970，基本达到并略高于论文报告值；Yahoo 复现 F1 为 0.6397，低于论文报告值约 0.026。造成 Yahoo 差异的原因可能包括数据版本、文件划分、周期参数细节、延迟容忍范围和实现差异。整体来看，复现结果仍然符合论文结论：FluxEV 在不依赖监督标签训练的条件下，可以获得较高的异常检测精度。
+
+OPS 数据集没有论文中的基准结果，因此主要用于验证 FluxEV 在本项目真实运维指标上的适用性。OPS 总体 F1 为 0.7849，Precision 达到 0.8765，说明模型在自采集指标上误报相对较少；Recall 为 0.7106，说明仍存在部分故障窗口内的异常波动未被捕捉。逐指标结果中，77 条指标全部完成评估，其中 63 条正常完成 SPOT 检测，14 条因初始化峰值不足等原因使用零预测兜底。效果最好的指标集中在 CPU saturation、CPU pressure、磁盘读吞吐、CPU user/system/softirq 等与 stress-test 强相关的序列，部分 F1 达到 0.98--1.00，逐指标结果示例见附录图~\ref{fig:appendix_fluxev_ops_individual_results}。
+
+OPS 结果也体现了自采集运维数据的特点。资源压力故障往往造成 CPU 与磁盘类指标出现稳定且持续的异常波动，因此 FluxEV 容易通过局部波动和阈值检测捕获；网络丢包故障的影响更依赖具体服务链路和流量方向，部分网络接口指标变化不明显，或者异常表现不是单点尖峰，而是吞吐下降、连接重试和服务延迟的组合，因此单变量 FluxEV 的召回率相对受限。后续若继续改进，可以将 OPS 数据扩展到服务级延迟、请求错误率、gRPC 状态码和应用日志异常，并结合多指标关联分析补充单变量检测的不足。
+
+综上，本部分完成了从微服务部署、故障注入、监控采集到异常检测复现的闭环。部署与监控部分提供了真实的运维实验环境；Chaos Mesh 提供了可控的异常窗口；OPS 预处理将 Grafana 指标转化为可复现实验数据；FluxEV 复现则验证了基于波动特征与极值理论的无监督时间序列异常检测方法在公开数据集和自采集微服务指标上的效果。
 
 
 \section{项目测试}
@@ -264,8 +627,82 @@ Online Boutique 原始系统以 \texttt{frontend} 作为用户入口，浏览器
 \end{figure}
 \subsection*{Jmeter自动化测试}
 
+我们使用Jmeter进行自动化测试，设计了多组设计样例，由于我们的微服务部署在k8s中无法直接请求，所以我们使用了通道技术（minikube tunnel），我们的测试分为压力测试和边界值分析测试，其中压力测试首先对前端直发http请求进行压测，但考虑到前端网关是单pod接受压力，测试效果并不好，所以我们使用了jmeter的grpc请求插件，并通过通道将容器内的微服务暴露到宿主机上进行压测，但这样操作会因为通道自身限制无法将性能发挥到极致，于是我们构想了将jmeter打进pod内直接对微服务进行压测，但由于我们的电脑配置不足，直接进行pod内压测会导致minikube崩溃，最终我们遗憾地未完成该构想。
 
+在grpc的压力测试组中，我们设计了多组样例，其中我们进行了针对全部服务的grpc压测，针对有依赖关系的两个微服务的定向测试，和容易成为薄弱点的recommend和email微服务的定点测试（我们发现这两个微服务由python编写，而python的并发量相比Java和go差一些）。由于我们进行了很多种测试，由于篇幅原因，我们在这里挑出一些最具代表性的测试进行分析
 
+\begin{table}[htbp]
+	\centering
+	\caption{JMeter 压测脚本详情（部分）}
+	\label{tab:jmeter_tests}
+	\resizebox{\textwidth}{!}{%
+		\begin{tabular}{lrrrrrrrl}
+			\toprule
+			\textbf{测试脚本} & \textbf{总线程数} & \textbf{总采样数} & \textbf{错误数} & \textbf{错误率} & \textbf{平均响应时间} & \textbf{P99} & \textbf{吞吐量 (req/s)} & \textbf{测试类型} \\
+			\midrule
+			jmeter-all-apis.jmx & 130 & 35,280 & 2,884 & 8.17\% & 352.85\,ms & 1,740.98\,ms & 50.96 & 混合场景压测 \\
+			jmeter-grpc-extreme.jmx & 500 & 155,000 & 28,839 & 18.61\% & 91.56\,ms & 348.99\,ms & 981.82 & 极限压测 \\
+			test-http-all-easyerror & 2,900 & 2,900 & 1,850 & 63.79\% & 275.35\,ms & 4,160\,ms & 34.10 & 边界值/安全测试 \\
+			jmeter-checkout-currency & 800 & 1,600 & 0 & 0\% & 63.26\,ms & 98.98\,ms & 5.41 & gRPC 依赖链压测 \\
+			jmeter-rec-email & 800 & 160,000 & 151,774 & 94.86\% & 54.77\,ms & 1\,ms & 2,514.30 & 极限压测(高失败率) \\
+			\bottomrule
+		\end{tabular}%
+	}
+\end{table}
+表\ref{tab:jmeter_tests}展示了主要测试脚本的基本信息和测试结果，其中jmeter-all-apis是http协议请求压测，test-http-all-easyerror是边界测试，我们将在后面详细介绍边界测试的具体内容。
+\subsubsection{压力测试}
+
+如我们预想的一样，推荐微服务和邮件微服务的处理能力相较其他微服务来说较差，平均响应时间较低的原因是很多请求还未被处理就已失败，800线程20轮的压测使两个微服务的请求堆积严重，导致出现请求越多放弃越多的雪崩情况。all-apis的平均响应时间和P99表明其到压测后期也出现了请求堆积严重的状况，由于所有的压力全都打到了前端pod上，所以其情况比下面的grpc压测差也是可以预料到的。
+
+grpc压测设置为500线程压测，其错误率高可能是因为某个微服务成为了性能瓶颈，这种瓶颈在直接平等压测后端的测试中被放大导致出现了这样的情况。由于800线程20轮压测推荐和邮件微服务发现最终请求堆积严重，在进行依赖微服务压测的时候我们将轮数调至两轮压测存在依赖关系的微服务，其处理能力非常优秀，但我们在详细信息中仍看到了我们预测的结果
+
+\begin{table}[htbp]
+	\centering
+	\caption{CurrencyService 与 CheckoutService 响应时间分析}
+	\label{tab:currency_checkout_perf}
+	\begin{tabular}{lrrrr}
+		\toprule
+		\textbf{服务} & \textbf{平均响应时间} & \textbf{中位数} & \textbf{P99} & \textbf{评估} \\
+		\midrule
+		CurrencyService & 56.18\,ms & 53\,ms & 90\,ms & 响应极快 \\
+		CheckoutService & 70.33\,ms & 55\,ms & 285.34\,ms & 表现良好 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+如表\ref{tab:currency_checkout_perf},虽然currency会被checkout调用且有其他线程同时进行压测，但由于currency的处理速度较快（逻辑较为简单高效），checkout由于要等待currency的返回结果故其平均响应时间和P99均慢于currency
+
+\subsubsection{边界值分析测试与安全测试}
+
+\begin{table}[htbp]
+	\centering
+	\caption{API 测试结果按类别汇总}
+	\label{tab:api_test_summary}
+	\begin{tabular}{lrrrrl}
+		\toprule
+		\textbf{测试类别} & \textbf{用例数} & \textbf{通过数} & \textbf{失败数} & \textbf{通过率} & \textbf{说明} \\
+		\midrule
+		\textbf{正常用例} & 17 & 15 & 2 & 88.2\% & 15个返回预期200；2个功能失败\\
+		\textbf{参数校验} & 8 & 8 & 0 & 100\% & 缺失参数均返回400，校验正确 \\
+		\textbf{数据校验} & 6 & 6 & 0 & 100\% & 无效数据格式均返回400 \\
+		\textbf{边界值} & 8 & 8 & 0 & 100\% & 异常ID/数量/路径均正确处理 \\
+		\textbf{安全测试(SQL注入)} & 5 & 5 & 0 & 100\% & SQL注入均被正确处理 \\
+		\textbf{安全测试(XSS)} & 5 & 5 & 0 & 100\% & XSS注入均被正确处理 \\
+		\textbf{安全测试(路径穿越)} & 3 & 3 & 0 & 100\% & 路径穿越均返回404 \\
+		\textbf{方法测试} & 6 & 6 & 0 & 100\% & 非法方法均返回405 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+在附录的表\ref{tab:api_test_results}中我们给出了所有的边界值测试，在这里我们给出一个聚合的结果表\ref{tab:api_test_summary},可以看到我们所有的边界值与安全注入错误全部正常返回了拒绝请求的预期，而正常用例中出错的两个请求是checkout和bot，根据我们后期对原因的探究与对源码的解析，这里的checkout需要购物车中有商品才可以正常访问，而bot是因为其是调用llm大模型进行商品推荐等操作，而我们并未填写bot所需的apikey，向量数据库连接信息等重要配置。
+
+综合来看，该微服务系统的安全防护和边界值处理能力表现较为扎实。在所有边界值测试用例（异常ID、非法数量、超长输入、不存在的路径等）中，系统均能正确识别并返回对应的错误码（400/404/500），未出现服务崩溃、无限循环或错误数据返回等异常行为。安全测试方面，针对SQL注入、XSS注入和路径穿越攻击的共计13个测试用例全部通过，通过率达100\%，表明系统在输入过滤、参数校验和访问控制层面具备有效的安全防护机制，能够抵御常见的Web攻击向量。
+
+正常用例88.2\%的通过率主要受两个功能性问题影响：一是POST /cart/checkout接口因购物车为空而失败，属于业务前置条件未满足，而非接口逻辑缺陷；二是POST /bot接口因缺乏LLM服务所需的API Key和向量数据库配置而超时，属于部署配置问题，并非代码层面的漏洞。
+
+总体而言，该微服务系统的接口契约遵从度和异常处理鲁棒性表现良好，参数校验、数据校验、边界值处理和非法方法拦截均达到100\%通过率。当前暴露的问题集中在业务链路完整性（checkout依赖购物车状态）和第三方服务集成配置（bot依赖LLM服务）两个维度，建议在测试环境中补充完整的依赖服务或Mock配置，并完善API文档中对前置条件的说明，以进一步提升测试通过率和系统的可测性。
+
+在附录中我们提供了有关我们的jmeter测试使用场景的表格以及全部的jmeter测试\ref{tab:jmeter_script_recommendation}
 
 \section{LightLog复现及其消融与对比实验}
 \subsection*{数据集构建}
@@ -306,11 +743,185 @@ Online Boutique 原始系统以 \texttt{frontend} 作为用户入口，浏览器
 
 \subsection*{LightLog复现}
 
+\subsubsection*{论文介绍}
+LightLog\cite{wang2022lightlog} 论文提出了一种面向边缘设备的轻量级日志异常检测方法，旨在解决现有深度学习方法（如 DeepLog、LogAnomaly）计算量大、难以在资源受限的边缘设备上实时部署的问题。该方法从两个维度实现轻量化：首先，在数据预处理阶段，采用 Word2Vec 将日志模板转换为 300 维语义向量，再通过 PCA-PPA（Post-Processing Algorithm）降维至 20 维，在保留语义信息的同时大幅减少存储和计算开销；其次，设计了一种增强型时序卷积网络（TCN），通过因果卷积保证时序正确性，通过扩张卷积（d=1,2,4,8）在不增加参数的前提下扩大感受野，并在残差块中引入多核卷积（kernel=2,3,4）和 Pointwise 卷积来提升精度并压缩参数。
+
+\subsubsection*{论文主要框架}
+LightLog\cite{wang2022lightlog} 从非结构化日志到异常检测的完整流程包含四个核心步骤：
+
+\paragraph{步骤1：日志解析}
+使用 FT-Tree 将非结构化日志解析为结构化模板。
+\begin{center}
+\verb|"Interface ae1 changed state to up at 2024-01-01 10:00:00"| \\
+$\downarrow$ \\
+\verb|"Interface <*> changed state to up at <TIME>"|
+\end{center}
+
+\paragraph{步骤2：Word2Vec 向量化}
+将日志模板转换为 300 维语义向量，捕捉模板间的语义关系。
+
+\paragraph{步骤3：PCA-PPA 降维}
+将 300 维语义向量降维至 20 维，适配边缘设备。论文中原始 300 维向量需要 0.46M 内存，降维后能大幅压缩，实现降维不降精度。
+\begin{center}
+300维 $\rightarrow$ 20维
+\end{center}
+
+\paragraph{步骤4：优化后的 TCN（核心）}
+针对时序日志预测，设计了四项优化（下面进行详细介绍）：
+\begin{itemize}
+\item 因果卷积（Causal Convolution）
+\item 扩张卷积（Dilated Convolution）
+\item 增强残差块（Enhanced Residual Block）
+\item 全局平均池化（Global Average Pooling, GAP）
+\end{itemize}
+
+\subsubsection{优化后的 TCN：四大核心改进}
+
+LightLog 在传统 TCN 基础上引入了四项关键优化，在保证高检测精度的同时大幅降低了模型参数量和计算复杂度，使其能够高效部署于资源受限的边缘设备。
+
+\begin{enumerate}
+\item \textbf{因果卷积（Causal Convolution）}
+    
+因果卷积是 TCN 的基础组件，其核心思想是保证模型在预测当前时刻的输出时，只能依赖于当前及之前时刻的输入信息，而不能“看到”未来的数据。这一特性对于时序建模至关重要，避免了未来信息泄露导致的不合理预测。
+\begin{itemize}
+\item 传统卷积：[L1, L2, L3, L4, L5] $\rightarrow$ 预测 L3 看到 L4, L5，这在时序任务中是不合理的。
+\item 因果卷积：[L1, L2, L3] $\rightarrow$ 预测 L4 只看 L1-L3，保证了时序预测的合理性。
+\end{itemize}
+
+\item \textbf{扩张卷积（Dilated Convolution）}
+    
+扩张卷积通过在卷积核元素之间插入空洞（即跳过部分输入）来扩大感受野，使得模型能够捕捉更长距离的时序依赖关系，同时不增加额外的参数量。LightLog 中设置扩张率 $d = 1, 2, 4, 8$，卷积核大小 $k = 3$。
+\begin{itemize}
+\item $d=1$：感受野为 3，对应相邻的 3 个日志 [L1, L2, L3]；
+\item $d=2$：感受野为 6，采样位置为 [L1, L3, L5]（每隔 2 个取一个）；
+\item $d=4$：感受野为 12，采样位置为 [L1, L5, L9]（每隔 4 个取一个）。
+\end{itemize}
+通过堆叠不同扩张率的卷积层，TCN 能够在参数不增加的情况下获得指数级扩大的感受野，有效捕捉日志序列中的长程模式。
+
+\item \textbf{增强残差块（Enhanced Residual Block）}
+    
+残差结构通过跳跃连接（skip connection）将输入直接加到输出上，有效缓解了深层网络训练中的梯度消失问题。LightLog 在此基础上对残差块进行了两项增强：
+\begin{itemize}
+\item \textit{多核卷积}：在残差块内并行使用多个不同尺寸的卷积核（kernel size = 2, 3, 4），从不同尺度提取日志序列的特征模式，丰富低层特征表示，显著提升检测精度；
+\item \textit{Pointwise 卷积}：采用 $1 \times 1$ 卷积对多核输出的特征通道进行融合，在保持特征表达能力的同时大幅减少参数量，实现模型轻量化。
+\end{itemize}
+
+\item \textbf{全局平均池化（Global Average Pooling, GAP）}
+    
+传统 CNN 通常在末端使用 Flatten 操作将特征图展平后接入全连接层进行分类，这会导致参数量急剧增加。LightLog 采用全局平均池化替代 Flatten，对每个特征通道的所有时间步取平均值，将输出维度从 $T \times C$ 压缩至 $C$，大幅减少了后续全连接层的参数量，同时有效降低了过拟合风险，提升了模型的泛化能力。
+\end{enumerate}
+
+\subsubsection*{训练过程}
+以LightLog在自建数据集上的训练过程为例，训练过程种Loss和Accuracy如下图所示
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.90\textwidth]{figure/LightLog/LightLog/训练过程.jpg}
+	\caption{训练过程}
+	\label{fig:ops_stress_test}
+\end{figure}
+\textbf{训练分析:}训练集和验证集的损失值（Loss）均呈快速下降趋势，并在约20个周期后趋于平稳，未出现明显过拟合迹象；同时，训练集与验证集的准确率（Accuracy）均稳步上升，最终均收敛于接近1.0的高位，且两者之间差距较小。这一过程表明LightLog模型在自建数据集上具有良好的收敛性与泛化能力。
+
+
+\subsubsection{复现结果}
+我们使用了LightLog\cite{wang2022lightlog}论文中提到的HDFS数据集和我们的自建数据集上进行了复现，日志异常检测本质上是一个对日志序列进行二元分类的过程，其分类结果可分为TP, TN, FP, FN四种类型，与LightLog论文一样，我们同样使用精确率（Precision）、召回率（Recall）以及 F1 分数（F1-Score）作为检测效果的评价指标
+
+\hspace{3em}
+\vspace{1em}
+Precision = $\frac{TP}{TP + FP}$
+
+\hspace{3em}
+\vspace{1em}
+Recall = $\frac{TP}{TP + FN}$
+
+\hspace{3em}
+\vspace{1em}
+F1 = $2 \times \frac{Precision \times Recall}{Precision + Recall}$
+
+我们在HDFS数据集上的复现结果所下图所示
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.80\textwidth]{figure/LightLog/LightLog/HDFS测试结果.png}
+	\caption{HDFS数据集复现结果}
+	\label{fig:ops_stress_test}
+\end{figure}
+复现结果与原论文相似，验证了LightLog方法在HDFS数据集上的有效性。
+
+我们在自建数据集上的复现结果所下图所示
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.80\textwidth]{figure/LightLog/LightLog/自建集复现结果.jpg}
+	\caption{自建数据集复现结果}
+	\label{fig:ops_stress_test}
+\end{figure}
+复现结果表明LightLog方法在我们自建数据集上同样具有较高的检测精度。
+
+\textbf{结论:}LightLog 模型在公开 HDFS 与自收集两类数据集上均取得优异性能，验证了其在日志异常检测任务中的高精度与泛化性。
+
 \subsection*{LightLog消融实验}
+为了严谨地验证所提出改进方案的有效性，并探究TCN中各组件对模型性能的具体贡献，我们进行了消融实验，一共设计了五个TCN变体，
+逐一验证LightLog模型中各个核心改进模块对最终性能的实际贡献
+
+消融实验的基本原理是，以最基础的TCN为基线，在保持数据、训练策略和其他超参数不变的前提下，依次将上述模块“叠加”到网络中，构成一系列结构递进的变体。通过对比相邻变体在相同测试集上的精确率、召回率、参数量和推理速度等指标，就能定量分析出每个模块独立带来的增益，5种设计变体及实验结果如下所示：
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.90\textwidth]{figure/LightLog/LightLog/消融实验设计.jpg}
+	\caption{消融实验设计}
+	\label{fig:ops_stress_test}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.90\textwidth]{figure/LightLog/LightLog/消融实验结果.jpg}
+	\caption{消融实验结果}
+	\label{fig:ops_stress_test}
+\end{figure}
+
+\textbf{消融结论}
+通过上述消融实验，可以得出以下三点主要结论：
+
+\begin{enumerate}
+\item \textbf{PCA-PPA 降维不降精度} 
+
+对比 \texttt{TCN} 与 \texttt{TCN\_PCA-PPA} 可知，在引入 PCA-PPA 降维后，模型参数量与模型大小均显著下降（参数量从 45,394 降至 27,474），而 F1 分数基本保持不变（从 0.9820 提升至 0.9822）。这表明 PCA-PPA 能够在保持检测精度的同时有效压缩模型规模。
+
+\item \textbf{Pointwise Conv 大幅降低计算量} 
+
+对比 \texttt{TCN\_3Kernels} 与 \texttt{TCN\_3Kernels+PWConv} 可知，引入 Pointwise 卷积后，训练时间从 779.9 秒大幅缩短至 377.2 秒。这充分验证了 Pointwise 卷积在减少模型计算开销方面的有效性。
+
+\item \textbf{整体轻量化设计有效} 
+
+最终，\texttt{Proposed TCN} 相较于基线 \texttt{TCN}，在参数量减少约 67\% 的同时，F1 分数反而从 0.9820 提升至 0.9833。这一结果充分证明了 LightLog 整体轻量化设计的有效性，即通过各组件的协同优化，能够在显著压缩模型规模的同时，保持甚至提升异常检测的性能。
+\end{enumerate}
 
 \subsection*{LogAnomaly与LogRobust的复现及对比实验}
 
 \subsubsection{LogAnomaly复现}
+我们阅读了LogAnomaly\cite{meng2019loganomaly}并对其进行了复现,下面介绍LogAnomaly论文的基本原理
+
+LogAnomaly 是一个基于深度学习的日志异常检测框架，其核心思想是将日志流建模为自然语言序列，通过提取日志模板的语义信息来实现异常检测。整个处理流程主要包含以下四个步骤：
+
+\textbf{1.日志解析：} 首先采用 FT-Tree 算法将非结构化的原始日志解析为结构化的日志模板，例如将 "Interface ae1 changed state to up at 2024-01-01 10:00:00" 解析为 "Interface <*> changed state to up at <TIME>"。这是后续语义分析的基础。
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.90\textwidth]{figure/LightLog/LightLog/Examples of template2Vec.jpg}
+	\caption{template2Vec方法示例}
+	\label{fig:ops_stress_test}
+\end{figure}
+\textbf{2.模板向量化：} 提出 template2Vec 方法，基于同义词和反义词集合，利用 dLCE 词嵌入模型为每个模板生成语义向量，从而将日志流转化为向量序列。相比仅使用模板索引的传统方法，该方式能够有效捕捉模板之间的语义关联，减少因模板表面差异导致的误报。
+
+\textbf{3.双模式学习：} 使用两层 LSTM 网络同时学习日志的两种模式：
+\begin{itemize}
+\item \textit{顺序模式（Sequential Pattern）}：学习模板向量的时序依赖关系，预测下一个可能出现的模板；
+\item \textit{定量模式（Quantitative Pattern）}：学习滑动窗口内各类模板的计数不变关系，如文件中 "打开" 与 "关闭" 操作的数量应保持平衡。
+\end{itemize}
+
+\textbf{4.在线检测：} 系统将实时日志匹配到已有模板，若遇到新模板则通过计算其临时模板向量与已有模板向量的相似度进行近似匹配。基于训练好的 LSTM 模型，结合顺序与定量两种模式的预测结果，综合判定日志序列是否异常。
+
+LogAnomaly 通过引入语义信息并同时检测两类异常，有效解决了传统方法中仅依赖模板索引带来的误报问题。
+
+在附录中我们提供了LogAnomaly的训练曲线作为参考\ref{fig:LogAnomalyTrain}。
+有关LogAnomaly复现的代码存放在项目仓库中LightLog下的LogAnomaly文件夹下
 
 \subsubsection{LogRobust复现}
 
@@ -322,14 +933,14 @@ Online Boutique 原始系统以 \texttt{frontend} 作为用户入口，浏览器
 		\centering
 		\includegraphics[width=\textwidth]{./figure/LightLog/LogRobust/data_process_robust.png}
 		\caption{数据预处理}
-		\label{fig:dataprocess}
+		\label{fig:Robustdataprocess}
 	\end{subfigure}
 	\hfill
 	\begin{subfigure}{0.45\textwidth}
 		\centering
 		\includegraphics[width=\textwidth]{./figure/LightLog/LogRobust/model_robust.png}
 		\caption{模型架构}
-		\label{fig:model}
+		\label{fig:RobustModel}
 	\end{subfigure}
 	\caption{LogRobust方法}
 	\label{fig:LogRobust}
@@ -337,16 +948,56 @@ Online Boutique 原始系统以 \texttt{frontend} 作为用户入口，浏览器
 
 图\ref{fig:LogRobust}中展示了LogRobust使用的方法，图片来自于LogRobust论文\cite{zhang2019robust}。
 
-如图\ref{fig:dataprocess}所示，LogRobust先对日志序列进行预处理，Log Seq（日志序列）会被转化为Log Event（结构化日志事件），在这之后结构化日志事件会被预训练的300维fasttext向量编码为语义向量，送入模型中。
+如图\ref{fig:Robustdataprocess}所示，LogRobust先对日志序列进行预处理，Log Seq（日志序列）会被转化为Log Event（结构化日志事件），在这之后结构化日志事件会被预训练的300维fasttext向量编码为语义向量，送入模型中。
 
-如图\ref{fig:model},语义向量将被送入如图的模型架构中，日志事件会按时序送入一个双向LSTM网络架构中，双向的LSTM可以保证该架构具有日志序列的全局信息，为下面的注意力机制提供更全面的信息。
+如图\ref{fig:RobustModel},语义向量将被送入如图的模型架构中，日志事件会按时序送入一个双向LSTM网络架构中，双向的LSTM可以保证该架构具有日志序列的全局信息，为下面的注意力机制提供更全面的信息。
 
-网络使用加性注意力，对每个时间步进行注意力输出，该注意力层在双层LSTM后。该层会给每个日志事件进行打分，评判出日志事件的重要性。再之后经过一个全连接层与softmax层输出两个值，正常概率和异常概率，用此综合评判一条日志序列是否异常。
+该网络采用加性注意力机制，在双向LSTM层之后对每个时间步计算注意力权重，为每个日志事件的重要性进行评分。随后，一个全连接层将加权求和后的向量映射为两个原始分数，再经由Softmax层转换为最终的概率分布（正常与异常的概率），从而综合判断一条日志序列是否异常。
 
 在附录中我们提供了LogRobust的训练曲线作为参考\ref{fig:LogRobustTrain}。有关LogRobust复现的代码存放在项目仓库中LightLog下的LogRobust文件夹下
 
 
-\subsubsection{对比实验结果及分析}
+\subsubsection{对比实验及结果分析}
+
+为了全面评估所提出的 LightLog 模型在实际部署中的实用价值，我们不仅关注其检测精度，还从模型规模和测试效率两个方面进行了对比实验。在边缘计算场景中，设备通常具有有限的计算资源和存储空间，因此，模型的参数量、模型体积以及推理速度是衡量其能否落地应用的关键指标。
+
+故本文将 LightLog 与当前主流的日志异常检测方法——即基于 LSTM 的 LogAnomaly 和 LogRobust——进行对比，旨在验证 LightLog 在轻量化设计和实时处理能力上的优势，在自建数据集上的测试结果如下所示
+\begin{table}[htbp]
+	\centering
+	\caption{模型规模与测试效率对比}
+	\label{tab:model_comparison}
+	\begin{tabular}{lrrrr}
+		\toprule
+		\textbf{模型} & \textbf{参数量} & \textbf{模型大小 (KB)} & \textbf{测试时间 (分钟)} & \textbf{测试时间 (秒)} \\
+		\midrule
+		LightLog    & 8,050   & 82.99  & 0.0859 & 5.15  \\
+		LogAnomaly  & 251,298 & 986.36 & 0.3490 & 20.94 \\
+		LogRobust   & 585,991 & 2292.36 & 1.9984 & 119.90 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+在参数量方面，LightLog仅为8,050个参数，相比LogAnomaly的251,298个参数降低了约96.8\%，相比LogRobust的585,991个参数降低了约98.6\%。这一显著差异主要源于LightLog采用了轻量化的时序卷积网络设计，通过点卷积和全局平均池化替代了全连接层，极大地减少了网络参数。而LogAnomaly和LogRobust均基于LSTM等循环神经网络架构，其门控机制和循环连接结构天然具有较多的参数。
+
+在模型大小方面，LightLog仅为82.99 KB，而LogAnomaly和LogRobust分别高达986.36 KB和2,292.36 KB。LightLog的模型体积相比LogAnomaly缩小了约91.6\%，相比LogRobust缩小了约96.4\%。这一优势使得LightLog能够轻松部署于存储资源有限的边缘设备中。
+
+在测试效率方面，LightLog处理单个测试样本的平均时间仅为5.15秒，远低于LogAnomaly的20.94秒和LogRobust的119.90秒。LightLog的测试速度相比LogAnomaly提升了约4倍，相比LogRobust提升了约23倍。这主要归功于TCN的并行计算能力——卷积操作可在各时间步上并行执行，而LSTM的循环依赖特性限制了其并行度，导致推理速度较慢。
+
+\vspace{1em}
+同时，为了验证LightLog在保持轻量化的同时是否能够保持高检测精度，我们还对三种模型在自建数据集上的检测性能进行了对比，结果如下所示：
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.80\textwidth]{figure/LightLog/LightLog/四篇对比.png}
+	\caption{检测性能对比分析}
+	\label{fig:ops_stress_test}
+\end{figure}
+在精确率（Precision）方面，LightLog 达到 0.9918，相比 LogAnomaly 的 0.9610 提升了约 3.2\%，相比 LogRobust 的 0.9772 提升了约 1.5\%，表明 LightLog 在预测异常时具有极低的误报率。这得益于 LightLog 采用 PCA-PPA 降维方法，有效去除了日志语义向量中的噪声和冗余信息，使得模型能够更准确地识别真正的异常模式。
+
+在召回率（Recall）方面，LightLog 达到 0.9753，高于 LogAnomaly 的 0.9652 和 LogRobust 的 0.9643，表明 LightLog 能够检测出更多的真实异常，具有较低的漏报率。这主要归功于 LightLog 采用的时序卷积网络能够有效捕获日志序列中的长程依赖关系，从而更全面地识别异常行为模式。
+
+在综合指标 F1-score 方面，LightLog 达到 0.9835，相比 LogAnomaly 的 0.9631 提升了约 2.1\%，相比 LogRobust 的 0.9707 提升了约 1.3\%。这一结果表明，LightLog 在精确率与召回率之间取得了更好的平衡，整体检测性能优于两种基于 LSTM 的基线方法。
+
+综上所述，LightLog在保持轻量化的基础上，仍能在 Precision、Recall 和 F1-score 三项指标上均优于 LogAnomaly 和 LogRobust，验证了本文提出的基于 TCN 和 PCA-PPA 降维的轻量化模型在日志异常检测任务中的有效性和优越性。
 
 \section{运维智能体}
 \subsection{问题背景}
@@ -559,7 +1210,6 @@ Jia Li, Shimin Di, Yanyan Shen, and Lei Chen.
 
 \end{thebibliography}
 \section{附录}
-\subsection*{新增微服务相关截图}
 \label{sec:appendix_microservice_figures}
 
 \begin{figure}[htbp]
@@ -665,6 +1315,87 @@ Jia Li, Shimin Di, Yanyan Shen, and Lei Chen.
 	\label{fig:appendix_pytest}
 \end{figure}
 
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.85\textwidth]{figure/ops/cluster-pods.png}
+	\caption{集群运行状态}
+	\label{fig:appendix_ops_cluster_pods}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.85\textwidth]{figure/ops/frontend-page.png}
+	\caption{Online Boutique 前端页面访问}
+	\label{fig:appendix_ops_frontend_page}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.85\textwidth]{figure/ops/grafana-node-exporter.png}
+	\caption{Grafana Node Exporter Full 仪表板}
+	\label{fig:appendix_ops_grafana_node_exporter}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.85\textwidth]{figure/ops/chaos-dashboard.png}
+	\caption{Chaos Mesh Dashboard}
+	\label{fig:appendix_ops_chaos_dashboard}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.85\textwidth]{figure/fluxev/original-csv.png}
+	\caption{OPS 原始 CSV 示例}
+	\label{fig:appendix_fluxev_original_csv}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.95\textwidth]{figure/fluxev/ops-manifest.png}
+	\caption{OPS 预处理结果 Manifest}
+	\label{fig:appendix_fluxev_ops_manifest}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\begin{subfigure}{0.32\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{figure/fluxev/kpi-result.png}
+		\caption{KPI}
+		\label{fig:appendix_fluxev_kpi_result}
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}{0.32\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{figure/fluxev/yahoo-result.png}
+		\caption{Yahoo}
+		\label{fig:appendix_fluxev_yahoo_result}
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}{0.32\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{figure/fluxev/ops-result.png}
+		\caption{OPS}
+		\label{fig:appendix_fluxev_ops_result}
+	\end{subfigure}
+	\caption{KPI、Yahoo 与 OPS 复现结果}
+	\label{fig:appendix_fluxev_reproduction_results}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.95\textwidth]{figure/fluxev/ops-individual-results.png}
+	\caption{OPS 逐指标结果示例}
+	\label{fig:appendix_fluxev_ops_individual_results}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{"./figure/LightLog/LogAnomaly/LogAnomalytrain.png"}
+	\caption{LogAnomaly训练曲线}
+	\label{fig:LogAnomalyTrain}
+\end{figure}
 
 \begin{figure}[htbp]
 	\centering
@@ -672,6 +1403,101 @@ Jia Li, Shimin Di, Yanyan Shen, and Lei Chen.
 	\caption{LogRobust训练曲线}
 	\label{fig:LogRobustTrain}
 \end{figure}
+
+\begin{table}[htbp]
+	\centering
+	\caption{边界值分析及安全测试}
+	\label{tab:api_test_results}
+	\resizebox{\textwidth}{!}{%
+		\begin{tabular}{llrrrrrl}
+			\toprule
+			\textbf{测试用例} & \textbf{接口} & \textbf{样本数} & \textbf{错误数} & \textbf{错误率} & \textbf{平均响应时间} & \textbf{断言期望} & \textbf{测试类型} \\
+			\midrule
+			GET / - 正常 & GET / & 50 & 0 & 0\% & 74.56\,ms & 200 & 正常用例 \\
+			HEAD / - HEAD方法 & HEAD / & 50 & 0 & 0\% & 51.18\,ms & 200 & 方法测试 \\
+			GET / - 带SQL注入参数 & GET / & 50 & 50 & 100\% & 0\,ms & 500 & 安全测试 \\
+			TRACE / - 非法方法 & TRACE / & 50 & 50 & 100\% & 22.34\,ms & 405 & 方法测试 \\
+			GET /product/\{id\} - 有效ID1 & \texttto{GET /product/OLJCESPC7Z} & 50 & 0 & 0\% & 35.48\,ms & 200 & 正常用例 \\
+			GET /product/\{id\} - 有效ID2 & \texttto{GET /product/LS4PSXUNUM} & 50 & 0 & 0\% & 24.80\,ms & 200 & 正常用例 \\
+			GET /product/\{id\} - 不存在的ID & \texttto{GET /product/NONEXIST99} & 50 & 50 & 100\% & 24.82\,ms & 500 & 边界值 \\
+			GET /product/\{id\} - SQL注入ID & \texttto{GET /product/' OR '1'='1} & 50 & 50 & 100\% & 22.16\,ms & 500 & 安全测试 \\
+			GET /product/\{id\} - 超长ID & \texttto{GET /product/\{LONG\_STR\}} & 50 & 50 & 100\% & 3.50\,ms & 500 & 边界值 \\
+			GET /product/\{id\} - 负数ID & \texttto{GET /product/-1} & 50 & 50 & 100\% & 8.56\,ms & 500 & 边界值 \\
+			GET /product/\{id\} - XSS注入ID & \texttto{GET /product/}$<$\texttto{script}$>$\texttto{alert(1)}$<$/\texttto{script}$>$ & 50 & 50 & 100\% & 0\,ms & 500 & 安全测试 \\
+			GET /product-meta/\{ids\} - 有效ID & \texttto{GET /product-meta/OLJCESPC7Z} & 50 & 0 & 0\% & 49.02\,ms & 200 & 正常用例 \\
+			GET /product-meta/\{ids\} - SQL注入 & \texttto{GET /product-meta/' OR '1'='1} & 50 & 0 & 0\% & 27.36\,ms & 500 & 安全测试 \\
+			GET /product-meta/\{ids\} - 空ID & \texttto{GET /product-meta/} & 50 & 50 & 100\% & 46.80\,ms & 500 & 边界值 \\
+			GET /product-meta/\{ids\} - XSS注入 & \texttto{GET /product-meta/}$<$\texttto{script}$>$\texttto{alert(1)}$<$/\texttto{script}$>$ & 50 & 50 & 100\% & 0\,ms & 500 & 安全测试 \\
+			GET /cart - 正常 & GET /cart & 50 & 0 & 0\% & 56.52\,ms & 200 & 正常用例 \\
+			HEAD /cart - HEAD方法 & HEAD /cart & 50 & 0 & 0\% & 36.36\,ms & 200 & 方法测试 \\
+			POST /cart - 正常添加 & POST /cart & 50 & 0 & 0\% & 20.16\,ms & 200 & 正常用例 \\
+			POST /cart - 缺少product\_id & POST /cart & 50 & 50 & 100\% & 1.96\,ms & 400 & 参数校验 \\
+			POST /cart - 缺少quantity & POST /cart & 50 & 50 & 100\% & 1.84\,ms & 400 & 参数校验 \\
+			POST /cart - 空body & POST /cart & 50 & 50 & 100\% & 1.92\,ms & 400 & 参数校验 \\
+			POST /cart - SQL注入product\_id & POST /cart & 50 & 50 & 100\% & 2.70\,ms & 400 & 安全测试 \\
+			POST /cart - quantity负数 & POST /cart & 50 & 50 & 100\% & 1.84\,ms & 400 & 边界值 \\
+			POST /cart - quantity=0 & POST /cart & 50 & 50 & 100\% & 1.68\,ms & 400 & 边界值 \\
+			POST /cart - quantity超大值 & POST /cart & 50 & 50 & 100\% & 1.88\,ms & 400 & 边界值 \\
+			POST /cart - quantity非数字 & POST /cart & 50 & 50 & 100\% & 1.78\,ms & 400 & 边界值 \\
+			POST /cart/empty - 正常 & POST /cart/empty & 50 & 0 & 0\% & 50.74\,ms & 200 & 正常用例 \\
+			GET /cart/empty - 错误方法 & GET /cart/empty & 50 & 50 & 100\% & 27.44\,ms & 405 & 方法测试 \\
+			POST /cart/checkout - 完整正常 & POST /cart/checkout & 50 & 50 & 100\% & 16.62\,ms & 200 & 正常用例(功能失败) \\
+			POST /cart/checkout - 空body & POST /cart/checkout & 50 & 50 & 100\% & 2.04\,ms & 400 & 参数校验 \\
+			POST /cart/checkout - 无效email格式 & POST /cart/checkout & 50 & 50 & 100\% & 1.68\,ms & 400 & 数据校验 \\
+			POST /cart/checkout - XSS注入email & POST /cart/checkout & 50 & 50 & 100\% & 1.58\,ms & 400 & 安全测试 \\
+			POST /cart/checkout - zip\_code非数字 & POST /cart/checkout & 50 & 50 & 100\% & 1.86\,ms & 400 & 数据校验 \\
+			POST /cart/checkout - 缺少email & POST /cart/checkout & 50 & 50 & 100\% & 2.10\,ms & 400 & 参数校验 \\
+			POST /cart/checkout - 缺少信用卡号 & POST /cart/checkout & 50 & 50 & 100\% & 1.92\,ms & 400 & 参数校验 \\
+			POST /cart/checkout - 已过期信用卡 & POST /cart/checkout & 50 & 50 & 100\% & 1.78\,ms & 400 & 数据校验 \\
+			GET /\_healthz - 正常 & GET /\_healthz & 50 & 0 & 0\% & 69.32\,ms & 200 & 正常用例 \\
+			HEAD /\_healthz - HEAD方法 & HEAD /\_healthz & 50 & 0 & 0\% & 41.42\,ms & 200 & 方法测试 \\
+			POST /\_healthz - 错误方法 & POST /\_healthz & 50 & 0 & 0\% & 30.74\,ms & 405 & 方法测试 \\
+			GET /robots.txt - 正常 & GET /robots.txt & 50 & 0 & 0\% & 52.14\,ms & 200 & 正常用例 \\
+			GET /assistant - 正常 & GET /assistant & 50 & 0 & 0\% & 51.66\,ms & 200 & 正常用例 \\
+			GET /logout - 正常 & GET /logout & 50 & 0 & 0\% & 51.88\,ms & 200 & 正常用例 \\
+			POST /setCurrency - USD & POST /setCurrency & 50 & 0 & 0\% & 5.10\,ms & 200 & 正常用例 \\
+			POST /setCurrency - EUR & POST /setCurrency & 50 & 0 & 0\% & 2.02\,ms & 200 & 正常用例 \\
+			POST /setCurrency - JPY & POST /setCurrency & 50 & 0 & 0\% & 1.74\,ms & 200 & 正常用例 \\
+			POST /setCurrency - 无效货币RMB & POST /setCurrency & 50 & 50 & 100\% & 1.72\,ms & 400 & 数据校验 \\
+			POST /setCurrency - 缺少currency\_code & POST /setCurrency & 50 & 50 & 100\% & 2.10\,ms & 400 & 参数校验 \\
+			POST /setCurrency - SQL注入 & POST /setCurrency & 50 & 50 & 100\% & 2.72\,ms & 400 & 安全测试 \\
+			POST /setCurrency - XSS注入 & POST /setCurrency & 50 & 50 & 100\% & 1.72\,ms & 400 & 安全测试 \\
+			POST /bot - 正常JSON & POST /bot & 50 & 50 & 100\% & 2,494.80\,ms & 200 & 正常用例(超时) \\
+			POST /bot - 无效JSON & POST /bot & 50 & 50 & 100\% & 4,131.90\,ms & 400 & 数据校验 \\
+			POST /bot - 空body & POST /bot & 50 & 50 & 100\% & 4,032.72\,ms & 400 & 参数校验 \\
+			POST /bot - XSS JSON & POST /bot & 50 & 50 & 100\% & 4,106.78\,ms & 400 & 安全测试 \\
+			GET /static/ - 正常(根) & GET /static/ & 50 & 0 & 0\% & 66.06\,ms & 200 & 正常用例 \\
+			GET /static/ - 不存在的文件 & GET /static/nonexistent.css & 50 & 50 & 100\% & 28.68\,ms & 404 & 边界值 \\
+			GET /static/ - 路径穿越-0 & GET /static/../ & 50 & 0 & 0\% & 37.40\,ms & 404 & 安全测试 \\
+			GET /static/ - 路径穿越-1 & GET /static/../../ & 50 & 50 & 100\% & 46.72\,ms & 404 & 安全测试 \\
+			GET /static/ - 路径穿越 & GET /static/../../../etc/passwd & 50 & 50 & 100\% & 84.26\,ms & 404 & 安全测试 \\
+			\bottomrule
+		\end{tabular}%
+	}
+\end{table}
+
+\begin{table}[htbp]
+	\centering
+	\caption{JMeter 压测脚本选型推荐}
+	\label{tab:jmeter_script_recommendation}
+	\resizebox{\textwidth}{!}{%
+		\begin{tabular}{lll}
+			\toprule
+			\textbf{测试类型} & \textbf{推荐脚本} & \textbf{推荐理由} \\
+			\midrule
+			\textbf{HTTP 全链路功能验证} & jmeter-all-apis & 覆盖浏览、下单、辅助三大场景，含 Cookie 和缓存管理，适合功能正确性验证 \\
+			\textbf{HTTP 轻量级回归测试} & jmeter-online-boutique & 线程数适中(100)，含响应断言，适合 CI/CD 流水线中的回归测试 \\
+			\textbf{gRPC 后端服务验证} & jmeter-grpc-backend & 覆盖 CartService、ProductCatalogService、下单链路，适合后端服务上线前验证 \\
+			\textbf{gRPC 极限压力测试} & jmeter-grpc-extreme & 500线程并行，无思考时间，适合发现系统瓶颈和容量上限 \\
+			\textbf{HTTP 单接口极限测试} & jmeter-product-stress & 200线程专注商品接口，适合分析特定接口的性能极限 \\
+			\textbf{gRPC Checkout+Currency 依赖链} & jmeter-checkout-currency & 800线程，专注 Checkout→Currency 依赖链，适合验证服务间调用稳定性 \\
+			\textbf{gRPC 推荐/邮件服务极限} & jmeter-rec-email & 800线程，适合测试推荐和邮件服务的极限处理能力 \\
+			\textbf{边界值/安全测试} & test-http-all-easyerror & 58个边界测试用例，覆盖 SQL注入、XSS、路径穿越、非法参数等 \\
+			\textbf{长时间稳定性测试} & test-http-infinity & 无限循环模式，适合 7×24 稳定性测试（需手动停止,在本项目中用来收集日志） \\
+			\bottomrule
+		\end{tabular}%
+	}
+\end{table}
 
 \subsection*{运维智能体相关截图}
 \label{sec:appendix_agent_figures}
