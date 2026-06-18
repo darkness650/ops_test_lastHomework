@@ -149,7 +149,7 @@
 \songti\zihao{-4}
 
 \section{分工情况与项目概述}
-\subsection*{分工情况}
+\subsection{分工情况}
     \begin{center}
     \begin{table*}[h]
         \centering
@@ -189,7 +189,7 @@
     \end{table*}
 \end{center}
 
-\subsection*{项目概述}
+\subsection{项目概述}
 
 本项目基于Minikube Kubernetes 集群与 Docker 容器化技术，完成了完整的微服务部
 署、自动化测试、监控运维与异常检测全流程实验。
@@ -209,7 +209,7 @@ JMeter 分别完成系统功能自动化测试与性能压力测试，用采集�
 
 本部分工作基于 Google Cloud 的 Online Boutique 微服务示例系统进行扩展。原系统已经具备商品浏览、购物车、结算、推荐、广告、支付、邮件、配送等典型电商功能，能够体现多语言、多服务协同工作的微服务架构特点。但是，原项目的商品购买流程并没有真正维护库存状态：用户可以反复加入商品，系统不会判断剩余库存是否足够；清空购物车也不会恢复库存；管理员也没有独立的进货入口。因此，本次开发选择围绕“库存管理”和“进货管理”补充业务能力，在原有系统上新增两个微服务，并对前端服务进行集成改造。
 
-\subsection*{原系统结构}
+\subsection{原系统结构}
 
 Online Boutique 原始系统以 \texttto{frontend} 作为用户入口，浏览器和压测程序都通过 HTTP 访问前端服务，再由前端服务调用内部微服务完成页面展示和业务处理。原系统中，\texttto{productcatalogservice} 负责商品数据，\texttto{cartservice} 负责购物车，\texttto{checkoutservice} 负责结算编排，\texttto{currencyservice}、\texttto{paymentservice}、\texttto{shippingservice}、\texttto{emailservice} 等服务分别承担货币换算、支付、配送和邮件通知等职责。整体结构如图 \ref{fig:origin_microservice_arch} 所示。
 
@@ -222,7 +222,7 @@ Online Boutique 原始系统以 \texttto{frontend} 作为用户入口，浏览�
 
 从架构上看，原系统服务拆分清晰，但商品库存没有被建模为独立状态。商品目录服务只负责展示商品基本信息，购物车服务只保存用户选择的商品和数量，二者之间没有库存约束。因此，本次开发没有在页面上简单写死库存数字，而是新增独立库存服务，使库存成为可以查询、扣减、恢复和监控的业务状态。
 
-\subsection*{新增微服务设计}
+\subsection{新增微服务设计}
 
 本次开发新增了两个微服务：\texttto{inventoryservice} 和 \texttto{restockservice}。\texttto{inventoryservice} 是库存服务，负责维护每个商品的剩余库存、库存状态和仓库位置，并提供查询、预留、释放等能力；\texttto{restockservice} 是进货服务，作为管理员补货操作的后端入口，负责校验服务间调用凭证，并调用库存服务完成库存增加。扩展后的架构如图 \ref{fig:new_microservice_arch} 所示。
 
@@ -235,7 +235,7 @@ Online Boutique 原始系统以 \texttto{frontend} 作为用户入口，浏览�
 
 扩展后系统形成了两条主要业务链路。第一条是普通用户购物链路：用户进入商品详情页时，\texttto{frontend} 调用 \texttto{inventoryservice} 查询当前库存，并在页面上展示剩余数量；用户加入购物车时，前端先请求库存服务预留库存，成功后再写入 \texttto{cartservice}；如果购物车写入失败，前端会调用库存服务释放刚才预留的库存，避免库存凭空减少；用户清空购物车时，系统也会把购物车中已有商品数量释放回库存。第二条是管理员进货链路：管理员访问独立的 \texttto{/admin/restock} 页面，登录成功后选择商品并输入进货数量，前端携带内部 API Token 调用 \texttto{restockservice}，再由进货服务调用库存服务增加库存。
 
-\subsection*{库存服务实现概述}
+\subsection{库存服务实现概述}
 
 \texttto{inventoryservice} 使用 Python 实现，核心职责是管理商品库存状态。服务启动时读取初始库存数据，并以商品 ID 为键保存库存数量、库存状态和仓库信息。库存状态根据剩余数量自动判断：库存为 0 时为缺货，库存较少时为低库存，其余情况为正常库存。这样前端不仅能显示“还剩多少件”，也能显示当前商品是否处于低库存或缺货状态。
 
@@ -243,7 +243,7 @@ Online Boutique 原始系统以 \texttto{frontend} 作为用户入口，浏览�
 
 这种设计的关键点在于：库存判断被放在服务端，而不是只依赖前端页面限制。即使用户绕过页面直接构造请求，也必须经过库存服务校验，无法购买超过库存的数量。这样可以让库存约束成为系统后端的一部分，而不是单纯的页面展示逻辑。
 
-\subsection*{进货服务实现概述}
+\subsection{进货服务实现概述}
 
 \texttto{restockservice} 同样使用 Python 实现，它不直接保存库存，而是承担管理员进货入口的角色。这样拆分的原因是普通用户购买商品和管理员补充库存属于不同业务角色，如果把进货逻辑混在商品详情页或购物车逻辑中，会让用户流程和管理流程混杂在一起，也不利于后续权限控制、进货记录、供应商管理等功能扩展。
 
@@ -251,7 +251,7 @@ Online Boutique 原始系统以 \texttto{frontend} 作为用户入口，浏览�
 
 当管理员提交进货数量后，\texttto{frontend} 会向 \texttto{restockservice} 发送请求；进货服务校验 Token 和参数后，再调用 \texttto{inventoryservice} 更新库存。操作成功后，页面显示进货成功弹窗，管理员点击确认后刷新页面，从而看到更新后的库存数量。相关界面和操作效果截图放在附录 \ref{sec:appendix_microservice_figures} 中。
 
-\subsection*{前端集成改造}
+\subsection{前端集成改造}
 
 原 \texttto{frontend} 服务使用 Go 实现，是用户访问系统的统一入口。本次开发在前端中增加了库存查询、库存预留、库存释放和管理员进货页面的调用逻辑。普通用户打开商品详情页时，页面会展示该商品的剩余库存、库存状态和仓库位置；商品数量选择框会根据库存动态限制最大可选数量，避免页面上直接选择超过库存的数量。
 
@@ -259,13 +259,13 @@ Online Boutique 原始系统以 \texttto{frontend} 作为用户入口，浏览�
 
 管理员页面则被设计为独立模块，而不是放在普通商品购买流程中。管理员访问 \texttto{/admin/restock} 后先看到登录页面，登录成功后进入进货页面。页面列出商品、当前库存和进货输入框，管理员提交后由前端调用进货服务。这样既保持了普通用户页面的简洁，也让管理操作有清晰的入口和权限边界。
 
-\subsection*{部署与测试}
+\subsection{部署与测试}
 
 两个新增服务都补充了 Dockerfile、Kubernetes Deployment 和 Service 配置，并加入到 skaffold 构建流程中。\texttto{frontend} 通过环境变量读取库存服务和进货服务地址，例如 \texttto{INVENTORY\_SERVICE\_URL} 和 \texttto{RESTOCK\_SERVICE\_URL}。在 Kubernetes 中，服务之间不使用 \texttto{localhost} 通信，而是通过 Service 名称进行访问，例如 \texttto{inventoryservice} 和 \texttto{restockservice}。这样可以适应 Pod 动态创建和销毁的环境。
 
 测试方面，库存服务重点验证库存查询、库存预留、库存不足拒绝、库存释放和异常商品 ID 等场景；进货服务重点验证 Token 校验、参数校验、进货成功和依赖库存服务失败等场景。前端功能则通过手动操作验证：商品详情页能看到库存，加入购物车后库存减少，清空购物车后库存回滚，管理员登录后可以进货，进货成功后弹窗提示并刷新页面。测试截图和 Kubernetes 运行状态截图统一放在附录中。
 
-\subsection*{本部分小结}
+\subsection{本部分小结}
 
 本部分在 Online Boutique 原有系统基础上新增了库存服务和进货服务，并完成了前端集成、容器化部署和功能测试。库存服务让商品库存从静态页面信息变成独立业务状态，支持查询、扣减、释放和监控；进货服务将管理员补货从普通购买流程中拆分出来，并通过管理员登录和 API Token 进行保护。经过改造后，系统形成了较完整的库存业务闭环：用户购买会占用库存，取消购物车会恢复库存，库存不足会拒绝请求，管理员可以在独立页面补充库存。该过程体现了微服务系统中服务拆分、接口协作、状态一致性、服务发现和可测试性的基本思想。
 
@@ -273,7 +273,7 @@ Online Boutique 原始系统以 \texttto{frontend} 作为用户入口，浏览�
 \section{部署、故障注入与监控、数据采集分析}
 本部分围绕 Online Boutique 微服务系统完成部署、监控体系搭建、故障注入和指标数据采集。实验流程从 Kubernetes 集群中运行微服务开始，随后部署 Prometheus、Grafana、Fluentd 和 Chaos Mesh，在可控故障窗口中采集节点与系统指标，最终为后续 FluxEV 时间序列异常检测复现提供 OPS 数据集。
 
-\subsection*{部署}
+\subsection{部署}
 
 本部分部署对象为基于 Google Online Boutique 扩展的微服务系统。项目在原有在线精品店业务基础上增加了库存管理和管理员进货相关功能，同时保留前端、购物车、商品目录、支付、结算、推荐、邮件、配送、广告、货币转换、Redis 购物车和负载生成器等典型微服务组件。系统部署文件位于 \texttto{ops/kubernetes-manifests.yaml}，使用 Kubernetes Deployment、Service 与 ServiceAccount 描述各服务实例和访问关系。
 
@@ -347,7 +347,7 @@ minikube service chaos-dashboard -n chaos-testing
 
 至此，实验平台由四层构成：业务微服务层、Kubernetes 编排层、Prometheus/Grafana/Fluentd/Kibana 可观测层，以及 Chaos Mesh 故障注入层。该结构既能验证服务在异常条件下的运行状态，也能为异常检测算法提供真实监控数据。
 
-\subsection*{故障注入与监控}
+\subsection{故障注入与监控}
 
 故障注入实验使用 Chaos Mesh 完成，实验定义位于 \texttto{ops/chaos/} 目录。设计目标是模拟两类常见运维异常：一类是网络质量下降，另一类是计算与内存资源竞争。两种故障都作用于 \texttto{default} 命名空间中的全部目标 Pod，从而观察整个微服务系统在基础设施扰动下的指标变化。
 
@@ -453,7 +453,7 @@ spec:
 
 \section{FluxEV 论文复现}
 
-\subsection*{论文介绍}
+\subsection{论文介绍}
 
 FluxEV 全称为 ``FluxEV: A Fast and Effective Unsupervised Framework for Time-Series Anomaly Detection''，发表于 WSDM 2021\cite{li2021fluxev}。论文面向在线服务监控中的时间序列异常检测问题，强调两个现实约束：一是实际运维指标数量大、标签少，难以依赖监督学习；二是检测需要流式、快速、可持续更新，复杂模型的训练和推理成本不适合大规模监控场景。
 
@@ -492,7 +492,7 @@ FluxEV 框架主要包含四个步骤：
 
 本仓库中的重构实现位于 \texttto{FluxEV/fluxev/}。其中 \texttto{detector.py} 实现 EWMA、两步平滑与流式检测逻辑；\texttto{spot.py} 实现 SPOT、GPD 参数估计和 MOM/MLE 两种估计方式；\texttto{datasets.py} 封装 KPI、Yahoo 和 OPS 三类数据集运行流程；\texttto{preprocessing.py} 与 \texttto{ops\_preprocessing.py} 分别处理公开 KPI 数据和自采集 OPS 数据。
 
-\subsection*{数据预处理}
+\subsection{数据预处理}
 
 本次复现使用三类数据：AIOps/KPI 数据集、Yahoo S5 benchmark 数据集，以及本项目自采集的 OPS 数据集。三类数据的来源和预处理方式不同，但最终都被整理为 FluxEV 可接受的单变量时间序列检测任务。
 
@@ -553,7 +553,7 @@ uv run -m fluxev.cli preprocess-ops
 
 预处理后生成 \texttto{manifest.csv}，记录每条输出指标对应的源文件、指标名、关联故障窗口、行数、点级异常数、窗口异常数和 p01/p99 基线，示例见附录图~\ref{fig:appendix_fluxev_ops_manifest}。当前 OPS 数据集共保留 77 条指标，其中 \texttto{CPU\_Memory\_Net\_Disk} 60 条，\texttto{System\_Processes} 13 条，\texttto{Network\_Netstat} 3 条，\texttto{Network\_Sockstat} 1 条。每条序列约 690 个采样点，能够覆盖两次 30 分钟故障实验及其前后状态。
 
-\subsection*{论文结果复现}
+\subsection{论文结果复现}
 
 \subsubsection{参数介绍与复现运行}
 
@@ -615,7 +615,7 @@ OPS 结果也体现了自采集运维数据的特点。资源压力故障往往�
 
 
 \section{项目测试}
-\subsection*{Selenium IDE测试}
+\subsection{Selenium IDE测试}
 
 我们使用Selenium IDE进行系统功能自动化测试，通过录制前端操作打通微服务从浏览商品，到选购，到广告，到下单的全流程，实现了系统功能的自动化测试，全程测试约10s，下附一张测试通过的图片\ref{fig:selenium}，相关的测试脚本文件可以在我们仓库的test文件夹下的selenium文件夹下找到
 
@@ -625,7 +625,7 @@ OPS 结果也体现了自采集运维数据的特点。资源压力故障往往�
 	\caption{selenium ide自动化测试}
 	\label{fig:selenium}
 \end{figure}
-\subsection*{Jmeter自动化测试}
+\subsection{Jmeter自动化测试}
 
 我们使用Jmeter进行自动化测试，设计了多组设计样例，由于我们的微服务部署在k8s中无法直接请求，所以我们使用了通道技术（minikube tunnel），我们的测试分为压力测试和边界值分析测试，其中压力测试首先对前端直发http请求进行压测，但考虑到前端网关是单pod接受压力，测试效果并不好，所以我们使用了jmeter的grpc请求插件，并通过通道将容器内的微服务暴露到宿主机上进行压测，但这样操作会因为通道自身限制无法将性能发挥到极致，于是我们构想了将jmeter打进pod内直接对微服务进行压测，但由于我们的电脑配置不足，直接进行pod内压测会导致minikube崩溃，最终我们遗憾地未完成该构想。
 
@@ -705,7 +705,7 @@ grpc压测设置为500线程压测，其错误率高可能是因为某个微服�
 在附录中我们提供了有关我们的jmeter测试使用场景的表格以及全部的jmeter测试\ref{tab:jmeter_script_recommendation}
 
 \section{LightLog复现及其消融与对比实验}
-\subsection*{数据集构建}
+\subsection{数据集构建}
 \subsubsection{日志采集}
 
 为了构造我们自己的log数据集，我们使用了fluent来进行日志的采集工作，通过修改fluent-configmap文件完成将采集的日志存储到本地文件中的任务，但fluent是以pod的形式存在于k8s集群中的，所以我们需要在minikube启动的时候进行数据卷挂载，将fluent记录日志的目录挂载到宿主机中。至此我们解决了日志收集的存储问题
@@ -735,18 +735,18 @@ grpc压测设置为500线程压测，其错误率高可能是因为某个微服�
 	\end{tabular}
 \end{table}
 
-\subsection*{构建数据集}
+\subsection{构建数据集}
 
 我们编写脚本，通过识别日志中的关键词（如error，fail等），网络状态码（如400，500等），响应时间（过长的响应时间等异常情况）等异常因素综合判定日志是否为异常日志进行数据标注。有关数据集处理的代码可以在我们仓库的lightlog目录下的dataset目录下找到。
 
 我们借鉴LightLog中\cite{wang2022lightlog}的有关数据集处理，由于我们收集的日志没有记录块id，所以我们使用了BGL数据集的滑动窗口机制构建自己的数据集，鉴于我们的数据集是个人电脑收集的，数量并不如超级计算机直接生成的一般大。所以使用了相比论文中提到的BGL数据集300条日志为一条序列更短的序列长度：20。使用8000条正常序列与8000条异常序列构造出训练数据集，将剩余采集到的正常序列与相当其2.9\%的异常序列混合作测试数据集。训练集中正常序列与异常序列1：1的比例是为了让模型在训练的时候可以充分提取正常序列和异常序列的特征，而测试集中的比例是为了保证在模型测试的时候可以得到对标真实情况的测试，使其可以应用于真实场景。我们使用了论文中提到的hdfs数据集中正常与异常数据的比例，最终构建了约23w条序列作为测试集。
 
-\subsection*{LightLog复现}
+\subsection{LightLog复现}
 
 \subsubsection*{论文介绍}
 LightLog\cite{wang2022lightlog} 论文提出了一种面向边缘设备的轻量级日志异常检测方法，旨在解决现有深度学习方法（如 DeepLog、LogAnomaly）计算量大、难以在资源受限的边缘设备上实时部署的问题。该方法从两个维度实现轻量化：首先，在数据预处理阶段，采用 Word2Vec 将日志模板转换为 300 维语义向量，再通过 PCA-PPA（Post-Processing Algorithm）降维至 20 维，在保留语义信息的同时大幅减少存储和计算开销；其次，设计了一种增强型时序卷积网络（TCN），通过因果卷积保证时序正确性，通过扩张卷积（d=1,2,4,8）在不增加参数的前提下扩大感受野，并在残差块中引入多核卷积（kernel=2,3,4）和 Pointwise 卷积来提升精度并压缩参数。
 
-\subsubsection*{论文主要框架}
+\subsubsection{论文主要框架}
 LightLog\cite{wang2022lightlog} 从非结构化日志到异常检测的完整流程包含四个核心步骤：
 
 \paragraph{步骤1：日志解析}
@@ -811,7 +811,7 @@ LightLog 在传统 TCN 基础上引入了四项关键优化，在保证高检测
 传统 CNN 通常在末端使用 Flatten 操作将特征图展平后接入全连接层进行分类，这会导致参数量急剧增加。LightLog 采用全局平均池化替代 Flatten，对每个特征通道的所有时间步取平均值，将输出维度从 $T \times C$ 压缩至 $C$，大幅减少了后续全连接层的参数量，同时有效降低了过拟合风险，提升了模型的泛化能力。
 \end{enumerate}
 
-\subsubsection*{训练过程}
+\subsubsection{训练过程}
 以LightLog在自建数据集上的训练过程为例，训练过程种Loss和Accuracy如下图所示
 \begin{figure}[H]
 	\centering
@@ -857,7 +857,7 @@ F1 = $2 \times \frac{Precision \times Recall}{Precision + Recall}$
 
 \textbf{结论:}LightLog 模型在公开 HDFS 与自收集两类数据集上均取得优异性能，验证了其在日志异常检测任务中的高精度与泛化性。
 
-\subsection*{LightLog消融实验}
+\subsection{LightLog消融实验}
 为了严谨地验证所提出改进方案的有效性，并探究TCN中各组件对模型性能的具体贡献，我们进行了消融实验，一共设计了五个TCN变体，
 逐一验证LightLog模型中各个核心改进模块对最终性能的实际贡献
 
@@ -893,7 +893,7 @@ F1 = $2 \times \frac{Precision \times Recall}{Precision + Recall}$
 最终，\texttt{Proposed TCN} 相较于基线 \texttt{TCN}，在参数量减少约 67\% 的同时，F1 分数反而从 0.9820 提升至 0.9833。这一结果充分证明了 LightLog 整体轻量化设计的有效性，即通过各组件的协同优化，能够在显著压缩模型规模的同时，保持甚至提升异常检测的性能。
 \end{enumerate}
 
-\subsection*{LogAnomaly与LogRobust的复现及对比实验}
+\subsection{LogAnomaly与LogRobust的复现及对比实验}
 
 \subsubsection{LogAnomaly复现}
 我们阅读了LogAnomaly\cite{meng2019loganomaly}并对其进行了复现,下面介绍LogAnomaly论文的基本原理
@@ -1185,6 +1185,32 @@ LLM 有时会陷入无限工具调用的循环。
 \end{itemize}
 
 \section{总结与展望}
+
+本项目围绕微服务运维全链路，完成了从系统开发、部署监控、故障注入、数据采集到异常检测算法复现与智能运维体搭建的完整闭环实验，主要成果如下：
+
+\textbf{微服务系统开发方面}，在 Online Boutique 基础上新增了 inventoryservice 和 restockservice 两个微服务，为系统补充了库存管理和进货管理能力。库存服务独立维护商品库存状态，支持查询、预留、释放等操作；进货服务作为管理员补货入口，通过登录验证和 API Token 双重保护。前端完成全链路集成，实现了“加入购物车扣减库存、清空购物车恢复库存、库存不足拒绝请求”的业务闭环，体现了微服务拆分、服务间协作和状态一致性的设计思想。
+
+\textbf{运维实验平台搭建方面}，基于 Minikube 完成了完整微服务集群部署，通过 Prometheus + Grafana 构建监控体系，利用 Fluentd 实现日志采集，借助 Chaos Mesh 注入网络丢包和资源压力两类可控故障。在约 6 小时的监控窗口内，采集了涵盖 CPU、内存、网络、磁盘、系统负载等多维度的 OPS 运维指标数据集，为后续异常检测实验提供了真实数据基础。
+
+\textbf{时间序列异常检测复现方面}，对 FluxEV 论文进行了完整复现。AIOps/KPI 数据集上达到 F1=0.7970（略高于论文报告的 0.790），Yahoo 数据集上达到 F1=0.6397（与论文 0.666 存在约 0.026 差距，可能与数据版本及参数细节有关）。OPS 自采集数据集总体 F1=0.7849，Precision=0.8765，表明模型在自采集指标上误报较少，验证了 FluxEV 在真实运维场景中的适用性。
+
+\textbf{日志异常检测方面}，构建了基于 Fluentd 采集 + Chaos Mesh 故障注入的自建日志数据集，共约 23 万条序列。完整复现了 LightLog、LogAnomaly 和 LogRobust 三种方法，并开展了消融实验与对比实验。LightLog 在自建数据集上达到 F1=0.9835，参数量仅 8,050（约为 LogAnomaly 的 3.2\%、LogRobust 的 1.4\%），测试速度相比 LogRobust 提升约 23 倍，验证了轻量化时序卷积网络在日志异常检测中的有效性与高效性。
+
+\textbf{运维智能体开发方面}，设计并实现了基于大语言模型的 Kubernetes 运维智能体系统，实现了三项核心能力：异常检测、根因分类与故障恢复建议。系统以模块化工具调用机制为基础，集成了 Kubernetes 监控、Prometheus 指标查询和日志分析三类共 15 个工具，通过前端界面提供集群概览、智能对话、性能分析和历史记录等功能。实际测试表明，智能体能够准确定位异常根因（如网络问题导致镜像拉取失败）并给出可操作的恢复建议，验证了 LLM 在运维场景中的应用价值。
+
+\textbf{测试方面}，采用 Selenium IDE 完成了系统功能自动化测试，打通了从商品浏览到下单的全业务流程；使用 JMeter 开展了多维度压力测试与边界值安全测试，覆盖了 HTTP/gRPC 接口压测、依赖链路测试和注入攻击测试，验证了系统在并发压力和安全攻击下的鲁棒性。
+
+基于本项目的成果与经验，未来可以从以下方向继续推进：
+
+\textbf{算法层面}，可探索多变量时间序列异常检测方法（如基于图神经网络或 Transformer 的多指标联合建模），进一步提升对复杂故障模式的识别能力。同时，可引入持续学习机制，使检测模型能够适应业务指标的周期性变化，降低误报率。
+
+\textbf{日志分析层面}，可扩展日志模板的语义表示能力，探索大语言模型在少样本日志解析与异常检测中的应用，减少对大规模标注数据的依赖。
+
+\textbf{智能体层面}，可构建运维知识图谱或本地 RAG 知识库，提升智能体的推理深度和回答准确性；引入工具安全审计与用户授权机制，逐步实现“检测→定位→修复”的完整自动化闭环；支持多集群管理和历史趋势分析，增强智能体的实用性和覆盖范围。
+
+\textbf{实验验证层面}，未来可在更大规模集群上开展实验，验证算法与系统在真实生产环境中的可扩展性，并探索 ChaosMesh 与智能体的联动，实现“故障注入→智能体检测→自动恢复”的端到端验证。
+
+总体而言，本项目为微服务运维的自动化、智能化探索提供了较为完整的实验平台与方法积累，后续可在此基础上有针对性地进行深入研究和工程化落地。
 
 \begin{thebibliography}{99}
 
